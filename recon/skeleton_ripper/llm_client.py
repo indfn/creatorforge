@@ -1,6 +1,7 @@
 """
 Multi-provider LLM client for Content Skeleton Ripper.
-Ported from ReelRecon — imports adjusted.
+Uses OpenAI-compatible /chat/completions format for all providers.
+Endpoints, API keys, and models are configurable via env vars.
 """
 
 import os
@@ -22,6 +23,22 @@ class ModelInfo:
     cost_tier: str
 
 
+def _env_or_default(key: str, default: str) -> str:
+    return os.getenv(key, default)
+
+
+LLM_BASE_URL = _env_or_default("LLM_BASE_URL", "https://api.openai.com/v1")
+LLM_API_KEY = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+LLM_MODEL = _env_or_default("LLM_MODEL", "gpt-4o-mini")
+LLM_ENABLED = os.getenv("LLM_ENABLED", "true").lower() in ("true", "1", "yes")
+
+TRANSCRIBE_BASE_URL = _env_or_default("TRANSCRIBE_BASE_URL", "https://api.openai.com/v1")
+TRANSCRIBE_API_KEY = os.getenv("TRANSCRIBE_API_KEY") or os.getenv("OPENAI_API_KEY")
+TRANSCRIBE_MODEL = _env_or_default("TRANSCRIBE_MODEL", "whisper-1")
+TRANSCRIBE_PROVIDER = _env_or_default("TRANSCRIBE_PROVIDER", "openai")
+WHISPER_MODEL = _env_or_default("WHISPER_MODEL", "small.en")
+
+
 @dataclass
 class ProviderConfig:
     id: str
@@ -33,32 +50,23 @@ class ProviderConfig:
 
 PROVIDERS = {
     'openai': ProviderConfig(
-        id='openai', name='OpenAI', api_key_env='OPENAI_API_KEY',
-        base_url='https://api.openai.com/v1',
+        id='openai', name='OpenAI', api_key_env='LLM_API_KEY',
+        base_url=LLM_BASE_URL,
         models=[
             ModelInfo('gpt-4o-mini', 'GPT-4o Mini (Recommended)', 'low'),
             ModelInfo('gpt-4o', 'GPT-4o', 'medium'),
         ]
     ),
-    'anthropic': ProviderConfig(
-        id='anthropic', name='Anthropic', api_key_env='ANTHROPIC_API_KEY',
-        base_url='https://api.anthropic.com/v1',
+    'custom': ProviderConfig(
+        id='custom', name='Custom Endpoint', api_key_env='LLM_API_KEY',
+        base_url=LLM_BASE_URL,
         models=[
-            ModelInfo('claude-3-haiku-20240307', 'Claude 3 Haiku', 'low'),
-            ModelInfo('claude-3-sonnet-20240229', 'Claude 3 Sonnet', 'medium'),
-        ]
-    ),
-    'google': ProviderConfig(
-        id='google', name='Google', api_key_env='GOOGLE_API_KEY',
-        base_url='https://generativelanguage.googleapis.com/v1beta',
-        models=[
-            ModelInfo('gemini-1.5-flash', 'Gemini 1.5 Flash', 'low'),
-            ModelInfo('gemini-1.5-pro', 'Gemini 1.5 Pro', 'medium'),
+            ModelInfo(LLM_MODEL, f'{LLM_MODEL} (from LLM_MODEL env)', 'custom'),
         ]
     ),
     'local': ProviderConfig(
         id='local', name='Local (Ollama)', api_key_env='',
-        base_url='http://localhost:11434/api',
+        base_url=_env_or_default('OLLAMA_BASE_URL', 'http://localhost:11434'),
         models=[
             ModelInfo('qwen3', 'Qwen 3 (Recommended)', 'free'),
             ModelInfo('llama3', 'Llama 3', 'free'),
@@ -72,9 +80,19 @@ class LLMClient:
     DEFAULT_MAX_RETRIES = 3
     RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
-    def __init__(self, provider: str, model: str, timeout: int = 120, max_retries: int = 3):
+    def __init__(self, provider: str = None, model: str = None, timeout: int = 120, max_retries: int = 3):
+        if provider is None:
+            provider = 'custom'
+        if model is None:
+            model = LLM_MODEL
+
         if provider not in PROVIDERS:
-            raise ValueError(f"Unknown provider: {provider}. Valid: {list(PROVIDERS.keys())}")
+            if provider in ('anthropic', 'google'):
+                logger.warning("LLM", f"Provider '{provider}' no longer supported directly. "
+                                   f"Use 'custom' with LLM_BASE_URL pointing to an OpenAI-compatible endpoint.")
+                provider = 'custom'
+            else:
+                raise ValueError(f"Unknown provider: {provider}. Valid: {list(PROVIDERS.keys())}")
 
         self.provider = provider
         self.model = model
@@ -84,11 +102,11 @@ class LLMClient:
 
         self.api_key = None
         if self.config.api_key_env:
-            self.api_key = os.getenv(self.config.api_key_env)
-            if not self.api_key:
-                raise ValueError(f"Missing API key. Set {self.config.api_key_env} env var.")
+            self.api_key = os.getenv(self.config.api_key_env) or os.getenv('OPENAI_API_KEY')
+            if not self.api_key and provider != 'local':
+                logger.warning("LLM", f"No API key set via {self.config.api_key_env} or OPENAI_API_KEY")
 
-        logger.info("LLM", f"Client initialized: {provider}/{model}")
+        logger.info("LLM", f"Client initialized: {provider}/{model} at {self.config.base_url}")
 
     def complete(self, prompt: str, temperature: float = 0.7) -> str:
         return self.chat(system_prompt=None, user_prompt=prompt, temperature=temperature)
@@ -97,14 +115,9 @@ class LLMClient:
         last_exception = None
         for attempt in range(self.max_retries + 1):
             try:
-                if self.provider == 'openai':
-                    return self._call_openai(system_prompt, user_prompt, temperature)
-                elif self.provider == 'anthropic':
-                    return self._call_anthropic(system_prompt, user_prompt, temperature)
-                elif self.provider == 'google':
-                    return self._call_google(system_prompt, user_prompt, temperature)
-                elif self.provider == 'local':
+                if self.provider == 'local':
                     return self._call_ollama(system_prompt, user_prompt, temperature)
+                return self._call_openai_compatible(system_prompt, user_prompt, temperature)
             except requests.exceptions.HTTPError as e:
                 last_exception = e
                 status_code = e.response.status_code if e.response is not None else 0
@@ -127,50 +140,36 @@ class LLMClient:
 
         raise last_exception or Exception("Max retries exceeded")
 
-    def _call_openai(self, system_prompt, user_prompt, temperature):
+    def _call_openai_compatible(self, system_prompt, user_prompt, temperature):
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": user_prompt})
+
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        base = self.config.base_url.rstrip('/')
         response = requests.post(
-            f"{self.config.base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
+            f"{base}/chat/completions",
+            headers=headers,
             json={"model": self.model, "messages": messages, "temperature": temperature},
             timeout=self.timeout
         )
         response.raise_for_status()
-        return response.json()['choices'][0]['message']['content']
+        data = response.json()
 
-    def _call_anthropic(self, system_prompt, user_prompt, temperature):
-        payload = {
-            "model": self.model, "max_tokens": 4096, "temperature": temperature,
-            "messages": [{"role": "user", "content": user_prompt}]
-        }
-        if system_prompt:
-            payload["system"] = system_prompt
-        response = requests.post(
-            f"{self.config.base_url}/messages",
-            headers={"x-api-key": self.api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
-            json=payload, timeout=self.timeout
-        )
-        response.raise_for_status()
-        return response.json()['content'][0]['text']
-
-    def _call_google(self, system_prompt, user_prompt, temperature):
-        full_prompt = f"{system_prompt}\n\n---\n\n{user_prompt}" if system_prompt else user_prompt
-        response = requests.post(
-            f"{self.config.base_url}/models/{self.model}:generateContent?key={self.api_key}",
-            headers={"Content-Type": "application/json"},
-            json={"contents": [{"parts": [{"text": full_prompt}]}], "generationConfig": {"temperature": temperature}},
-            timeout=self.timeout
-        )
-        response.raise_for_status()
-        return response.json()['candidates'][0]['content']['parts'][0]['text']
+        choices = data.get('choices', [])
+        if choices:
+            return choices[0]['message']['content']
+        raise ValueError(f"Unexpected API response: no choices. Keys: {list(data.keys())}")
 
     def _call_ollama(self, system_prompt, user_prompt, temperature):
         full_prompt = f"{system_prompt}\n\n---\n\n{user_prompt}" if system_prompt else user_prompt
+        base = self.config.base_url.rstrip('/')
         response = requests.post(
-            f"{self.config.base_url}/generate",
+            f"{base}/api/generate",
             json={"model": self.model, "prompt": full_prompt, "stream": False, "options": {"temperature": temperature}},
             timeout=self.timeout
         )
@@ -185,7 +184,8 @@ def get_available_providers() -> list[dict]:
         models = []
         if provider_id == 'local':
             try:
-                response = requests.get('http://localhost:11434/api/tags', timeout=2)
+                base = config.base_url.rstrip('/')
+                response = requests.get(f'{base}/api/tags', timeout=2)
                 if response.status_code == 200:
                     available = True
                     data = response.json()
@@ -195,8 +195,8 @@ def get_available_providers() -> list[dict]:
             except requests.exceptions.RequestException:
                 pass
         else:
-            api_key = os.getenv(config.api_key_env)
-            if api_key:
+            api_key = os.getenv(config.api_key_env) or os.getenv('OPENAI_API_KEY')
+            if api_key or not config.api_key_env:
                 available = True
                 models = [{'id': m.id, 'name': m.name, 'cost_tier': m.cost_tier} for m in config.models]
         result.append({'id': config.id, 'name': config.name, 'available': available, 'models': models})

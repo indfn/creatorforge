@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from recon.config import load_config, load_competitors, save_credentials, load_credentials
 from recon.scraper.instagram import InstaClient
 from recon.scraper.youtube import get_channel_videos, save_channel_data
-from recon.scraper.downloader import transcribe_video_openai, WHISPER_AVAILABLE
+from recon.scraper.downloader import transcribe_video, WHISPER_AVAILABLE
 from recon.skeleton_ripper import (
     SkeletonRipperPipeline, create_job_config, JobProgress, JobStatus,
     get_available_providers
@@ -335,10 +335,12 @@ def api_get_settings():
     return jsonify({
         "ig_username": creds.get("ig_username", ""),
         "ig_password_set": bool(creds.get("ig_password")),
-        "openai_api_key_set": bool(creds.get("openai_api_key")),
-        "anthropic_api_key_set": bool(creds.get("anthropic_api_key")),
-        "llm_provider": creds.get("llm_provider", "openai"),
+        "llm_api_key_set": bool(creds.get("llm_api_key") or creds.get("openai_api_key")),
+        "llm_base_url": creds.get("llm_base_url", "https://api.openai.com/v1"),
         "llm_model": creds.get("llm_model", "gpt-4o-mini"),
+        "transcribe_base_url": creds.get("transcribe_base_url", "https://api.openai.com/v1"),
+        "transcribe_model": creds.get("transcribe_model", "whisper-1"),
+        "transcribe_provider": creds.get("transcribe_provider", "openai"),
     })
 
 
@@ -349,8 +351,9 @@ def api_save_settings():
     creds = load_credentials()
 
     # Update only provided fields
-    for key in ["ig_username", "ig_password", "openai_api_key", "anthropic_api_key",
-                "google_api_key", "llm_provider", "llm_model", "transcribe_provider"]:
+    for key in ["ig_username", "ig_password", "openai_api_key", "llm_api_key",
+                "llm_base_url", "llm_model", "transcribe_base_url", "transcribe_model",
+                "transcribe_provider"]:
         if key in data and data[key]:
             creds[key] = data[key]
 

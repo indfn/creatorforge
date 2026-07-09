@@ -1,37 +1,42 @@
-"""OpenAI Responses API client for Reddit discovery."""
+"""OpenAI Responses API client for Reddit discovery.
+
+Configurable via env vars:
+  OPENAI_REDDIT_BASE_URL  — Custom endpoint (default: https://api.openai.com/v1/responses)
+  OPENAI_REDDIT_MODEL     — Model to use (default: gpt-4.1)
+  OPENAI_REDDIT_ENABLED  — Set "false" to disable
+"""
 
 import json
+import os
 import re
 import sys
 from typing import Any, Dict, List, Optional
 
 from . import http
 
-# Fallback models when the selected model isn't accessible (e.g., org not verified for GPT-5)
-# Note: gpt-4o-mini does NOT support web_search with filters param, so exclude it
+# Fallback models when the selected model isn't accessible
 MODEL_FALLBACK_ORDER = ["gpt-4.1", "gpt-4o"]
+
+# Configurable base URL
+OPENAI_REDDIT_BASE_URL = os.getenv("OPENAI_REDDIT_BASE_URL", "https://api.openai.com/v1/responses")
 
 
 def _log_error(msg: str):
-    """Log error to stderr."""
     sys.stderr.write(f"[REDDIT ERROR] {msg}\n")
     sys.stderr.flush()
 
 
 def _log_info(msg: str):
-    """Log info to stderr."""
     sys.stderr.write(f"[REDDIT] {msg}\n")
     sys.stderr.flush()
 
 
 def _is_model_access_error(error: http.HTTPError) -> bool:
-    """Check if error is due to model access/verification issues."""
     if error.status_code not in (400, 403):
         return False
     if not error.body:
         return False
     body_lower = error.body.lower()
-    # Check for common access/verification error messages
     return any(phrase in body_lower for phrase in [
         "verified",
         "organization must be",
@@ -41,10 +46,6 @@ def _is_model_access_error(error: http.HTTPError) -> bool:
     ])
 
 
-OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
-
-# Depth configurations: (min, max) threads to request
-# Request MORE than needed since many get filtered by date
 DEPTH_CONFIG = {
     "quick": (15, 25),
     "default": (30, 50),
@@ -55,9 +56,9 @@ REDDIT_SEARCH_PROMPT = """Find Reddit discussion threads about: {topic}
 
 STEP 1: EXTRACT THE CORE SUBJECT
 Get the MAIN NOUN/PRODUCT/TOPIC:
-- "best nano banana prompting practices" → "nano banana"
-- "killer features of clawdbot" → "clawdbot"
-- "top Claude Code skills" → "Claude Code"
+- "best nano banana prompting practices" -> "nano banana"
+- "killer features of clawdbot" -> "clawdbot"
+- "top Claude Code skills" -> "Claude Code"
 DO NOT include "best", "top", "tips", "practices", "features" in your search.
 
 STEP 2: SEARCH BROADLY
@@ -95,23 +96,16 @@ Return JSON:
 
 
 def _extract_core_subject(topic: str) -> str:
-    """Extract core subject from verbose query for retry."""
     noise = ['best', 'top', 'how to', 'tips for', 'practices', 'features',
              'killer', 'guide', 'tutorial', 'recommendations', 'advice',
              'prompting', 'using', 'for', 'with', 'the', 'of', 'in', 'on']
     words = topic.lower().split()
     result = [w for w in words if w not in noise]
-    return ' '.join(result[:3]) or topic  # Keep max 3 words
+    return ' '.join(result[:3]) or topic
 
 
 def _build_subreddit_query(topic: str) -> str:
-    """Build a subreddit-targeted search query for fallback.
-
-    When standard search returns few results, try searching for the
-    subreddit itself: 'r/kanye', 'r/howie', etc.
-    """
     core = _extract_core_subject(topic)
-    # Remove dots and special chars for subreddit name guess
     sub_name = core.replace('.', '').replace(' ', '').lower()
     return f"r/{sub_name} site:reddit.com"
 
@@ -128,12 +122,14 @@ def search_reddit(
 ) -> Dict[str, Any]:
     """Search Reddit for relevant threads using OpenAI Responses API.
 
+    Uses configurable endpoint from OPENAI_REDDIT_BASE_URL env var.
+
     Args:
         api_key: OpenAI API key
         model: Model to use
         topic: Search topic
-        from_date: Start date (YYYY-MM-DD) - only include threads after this
-        to_date: End date (YYYY-MM-DD) - only include threads before this
+        from_date: Start date (YYYY-MM-DD)
+        to_date: End date (YYYY-MM-DD)
         depth: Research depth - "quick", "default", or "deep"
         mock_response: Mock response for testing
 
@@ -150,14 +146,10 @@ def search_reddit(
         "Content-Type": "application/json",
     }
 
-    # Adjust timeout based on depth (generous for OpenAI web_search which can be slow)
     timeout = 90 if depth == "quick" else 120 if depth == "default" else 180
 
-    # Build list of models to try: requested model first, then fallbacks
     models_to_try = [model] + [m for m in MODEL_FALLBACK_ORDER if m != model]
 
-    # Note: allowed_domains accepts base domain, not subdomains
-    # We rely on prompt to filter out developers.reddit.com, etc.
     input_text = REDDIT_SEARCH_PROMPT.format(
         topic=topic,
         from_date=from_date,
@@ -183,7 +175,7 @@ def search_reddit(
         }
 
         try:
-            return http.post(OPENAI_RESPONSES_URL, payload, headers=headers, timeout=timeout)
+            return http.post(OPENAI_REDDIT_BASE_URL, payload, headers=headers, timeout=timeout)
         except http.HTTPError as e:
             last_error = e
             if _is_model_access_error(e):
@@ -192,10 +184,8 @@ def search_reddit(
             if e.status_code == 429:
                 _log_info(f"Rate limited on {current_model}, trying fallback model...")
                 continue
-            # Non-access error, don't retry with different model
             raise
 
-    # All models failed with access errors
     if last_error:
         _log_error(f"All models failed. Last error: {last_error}")
         raise last_error
@@ -212,7 +202,8 @@ def search_subreddits(
     """Search specific subreddits via Reddit's free JSON endpoint.
 
     No API key needed. Uses reddit.com/r/{sub}/search/.json endpoint.
-    Used in Phase 2 supplemental search after entity extraction.
+    Note: Reddit now blocks unauthenticated requests (403 since May 2026).
+    A future improvement could add OAuth support.
 
     Args:
         subreddits: List of subreddit names (without r/)
@@ -241,10 +232,9 @@ def search_subreddits(
 
             data = http.get(full_url, headers=headers, timeout=15, retries=1)
 
-            # Reddit search returns {"data": {"children": [...]}}
             children = data.get("data", {}).get("children", [])
             for i, child in enumerate(children):
-                if child.get("kind") != "t3":  # t3 = link/submission
+                if child.get("kind") != "t3":
                     continue
                 post = child.get("data", {})
                 permalink = post.get("permalink", "")
@@ -258,10 +248,9 @@ def search_subreddits(
                     "subreddit": str(post.get("subreddit", sub)).strip(),
                     "date": None,
                     "why_relevant": f"Found in r/{sub} supplemental search",
-                    "relevance": 0.65,  # Slightly lower default for supplemental
+                    "relevance": 0.65,
                 }
 
-                # Parse date from created_utc
                 created_utc = post.get("created_utc")
                 if created_utc:
                     from . import dates as dates_mod
@@ -281,23 +270,14 @@ def search_subreddits(
 
 
 def _url_encode(text: str) -> str:
-    """Simple URL encoding for query parameters."""
     import urllib.parse
     return urllib.parse.quote_plus(text)
 
 
 def parse_reddit_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Parse OpenAI response to extract Reddit items.
-
-    Args:
-        response: Raw API response
-
-    Returns:
-        List of item dicts
-    """
+    """Parse OpenAI response to extract Reddit items."""
     items = []
 
-    # Check for API errors first
     if "error" in response and response["error"]:
         error = response["error"]
         err_msg = error.get("message", str(error)) if isinstance(error, dict) else str(error)
@@ -306,7 +286,6 @@ def parse_reddit_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:
             _log_error(f"Full error response: {json.dumps(response, indent=2)[:1000]}")
         return items
 
-    # Try to find the output text
     output_text = ""
     if "output" in response:
         output = response["output"]
@@ -328,7 +307,6 @@ def parse_reddit_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:
                 if output_text:
                     break
 
-    # Also check for choices (older format)
     if not output_text and "choices" in response:
         for choice in response["choices"]:
             if "message" in choice:
@@ -336,10 +314,8 @@ def parse_reddit_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:
                 break
 
     if not output_text:
-        print(f"[REDDIT WARNING] No output text found in OpenAI response. Keys present: {list(response.keys())}", flush=True)
         return items
 
-    # Extract JSON from the response
     json_match = re.search(r'\{[\s\S]*"items"[\s\S]*\}', output_text)
     if json_match:
         try:
@@ -348,7 +324,6 @@ def parse_reddit_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:
         except json.JSONDecodeError:
             pass
 
-    # Validate and clean items
     clean_items = []
     for i, item in enumerate(items):
         if not isinstance(item, dict):
@@ -368,7 +343,6 @@ def parse_reddit_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:
             "relevance": min(1.0, max(0.0, float(item.get("relevance", 0.5)))),
         }
 
-        # Validate date format
         if clean_item["date"]:
             if not re.match(r'^\d{4}-\d{2}-\d{2}$', str(clean_item["date"])):
                 clean_item["date"] = None

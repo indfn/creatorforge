@@ -1,22 +1,26 @@
-"""xAI API client for X (Twitter) discovery."""
+"""xAI API client for X (Twitter) discovery.
+
+Configurable via env vars:
+  XAI_X_BASE_URL  — Custom endpoint (default: https://api.x.ai/v1/responses)
+  XAI_X_ENABLED   — Set "false" to disable
+"""
 
 import json
+import os
 import re
 import sys
 from typing import Any, Dict, List, Optional
 
 from . import http
 
+# Configurable base URL
+XAI_RESPONSES_URL = os.getenv("XAI_X_BASE_URL", "https://api.x.ai/v1/responses")
+
 
 def _log_error(msg: str):
-    """Log error to stderr."""
     sys.stderr.write(f"[X ERROR] {msg}\n")
     sys.stderr.flush()
 
-# xAI uses responses endpoint with Agent Tools API
-XAI_RESPONSES_URL = "https://api.x.ai/v1/responses"
-
-# Depth configurations: (min, max) posts to request
 DEPTH_CONFIG = {
     "quick": (8, 12),
     "default": (20, 30),
@@ -72,7 +76,7 @@ def search_x(
         topic: Search topic
         from_date: Start date (YYYY-MM-DD)
         to_date: End date (YYYY-MM-DD)
-        depth: Research depth - "quick", "default", or "deep"
+        depth: Research depth
         mock_response: Mock response for testing
 
     Returns:
@@ -88,10 +92,8 @@ def search_x(
         "Content-Type": "application/json",
     }
 
-    # Adjust timeout based on depth (generous for API response time)
     timeout = 90 if depth == "quick" else 120 if depth == "default" else 180
 
-    # Use Agent Tools API with x_search tool
     payload = {
         "model": model,
         "tools": [
@@ -115,17 +117,9 @@ def search_x(
 
 
 def parse_x_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Parse xAI response to extract X items.
-
-    Args:
-        response: Raw API response
-
-    Returns:
-        List of item dicts
-    """
+    """Parse xAI response to extract X items."""
     items = []
 
-    # Check for API errors first
     if "error" in response and response["error"]:
         error = response["error"]
         err_msg = error.get("message", str(error)) if isinstance(error, dict) else str(error)
@@ -134,7 +128,6 @@ def parse_x_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:
             _log_error(f"Full error response: {json.dumps(response, indent=2)[:1000]}")
         return items
 
-    # Try to find the output text
     output_text = ""
     if "output" in response:
         output = response["output"]
@@ -156,7 +149,6 @@ def parse_x_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:
                 if output_text:
                     break
 
-    # Also check for choices (older format)
     if not output_text and "choices" in response:
         for choice in response["choices"]:
             if "message" in choice:
@@ -166,7 +158,6 @@ def parse_x_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:
     if not output_text:
         return items
 
-    # Extract JSON from the response
     json_match = re.search(r'\{[\s\S]*"items"[\s\S]*\}', output_text)
     if json_match:
         try:
@@ -175,7 +166,6 @@ def parse_x_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:
         except json.JSONDecodeError:
             pass
 
-    # Validate and clean items
     clean_items = []
     for i, item in enumerate(items):
         if not isinstance(item, dict):
@@ -185,7 +175,6 @@ def parse_x_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:
         if not url:
             continue
 
-        # Parse engagement
         engagement = None
         eng_raw = item.get("engagement")
         if isinstance(eng_raw, dict):
@@ -198,7 +187,7 @@ def parse_x_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:
 
         clean_item = {
             "id": f"X{i+1}",
-            "text": str(item.get("text", "")).strip()[:500],  # Truncate long text
+            "text": str(item.get("text", "")).strip()[:500],
             "url": url,
             "author_handle": str(item.get("author_handle", "")).strip().lstrip("@"),
             "date": item.get("date"),
@@ -207,7 +196,6 @@ def parse_x_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:
             "relevance": min(1.0, max(0.0, float(item.get("relevance", 0.5)))),
         }
 
-        # Validate date format
         if clean_item["date"]:
             if not re.match(r'^\d{4}-\d{2}-\d{2}$', str(clean_item["date"])):
                 clean_item["date"] = None

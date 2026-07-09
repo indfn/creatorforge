@@ -1,7 +1,8 @@
 """
 Recon — Video download + transcription module.
-Extracted from ReelRecon's scraper/core.py.
-Supports OpenAI Whisper API (default) and local Whisper (fallback).
+Supports OpenAI-compatible transcription endpoint (default) and local Whisper.
+Endpoints, API keys, and models are configurable via env vars:
+  TRANSCRIBE_BASE_URL, TRANSCRIBE_API_KEY, TRANSCRIBE_MODEL
 """
 
 import os
@@ -25,42 +26,64 @@ try:
 except ImportError:
     WHISPER_AVAILABLE = False
 
+# Configurable transcription endpoint
+TRANSCRIBE_BASE_URL = os.getenv("TRANSCRIBE_BASE_URL", "https://api.openai.com/v1")
+TRANSCRIBE_API_KEY = os.getenv("TRANSCRIBE_API_KEY") or os.getenv("OPENAI_API_KEY")
+TRANSCRIBE_MODEL = os.getenv("TRANSCRIBE_MODEL", "whisper-1")
+TRANSCRIBE_PROVIDER = os.getenv("TRANSCRIBE_PROVIDER", "openai")
 
-def transcribe_video_openai(
+
+def transcribe_video(
     video_path: str,
-    api_key: str,
+    api_key: Optional[str] = None,
+    base_url: Optional[str] = None,
+    model: Optional[str] = None,
     output_path: Optional[str] = None,
     max_retries: int = 3,
 ) -> Optional[str]:
     """
-    Transcribe video using OpenAI Whisper API.
+    Transcribe video using an OpenAI-compatible transcription API.
+
+    Uses OpenAI's /audio/transcriptions format:
+      POST {base_url}/audio/transcriptions
+      Form-data: file, model, language, response_format
 
     Args:
         video_path: Path to the video/audio file
-        api_key: OpenAI API key
+        api_key: API key (uses TRANSCRIBE_API_KEY or OPENAI_API_KEY env var if None)
+        base_url: Base URL (uses TRANSCRIBE_BASE_URL env var if None)
+        model: Model name (uses TRANSCRIBE_MODEL env var if None)
         output_path: Optional path to save transcript text
         max_retries: Max retry attempts
 
     Returns:
         Transcript text, or None on failure
     """
-    video_name = os.path.basename(str(video_path))
-    url = "https://api.openai.com/v1/audio/transcriptions"
+    api_key = api_key or TRANSCRIBE_API_KEY
+    base_url = (base_url or TRANSCRIBE_BASE_URL).rstrip("/")
+    model = model or TRANSCRIBE_MODEL
 
-    logger.debug("TRANSCRIBE", f"Starting OpenAI transcription: {video_name}")
+    if not api_key:
+        logger.error("TRANSCRIBE", "No API key set. Set TRANSCRIBE_API_KEY or OPENAI_API_KEY.")
+        return None
+
+    video_name = os.path.basename(str(video_path))
+    url = f"{base_url}/audio/transcriptions"
+
+    logger.debug("TRANSCRIBE", f"Starting transcription: {video_name} → {url}")
 
     for attempt in range(max_retries):
         try:
             with open(video_path, 'rb') as audio_file:
                 files = {'file': (os.path.basename(video_path), audio_file, 'video/mp4')}
-                data = {'model': 'whisper-1', 'language': 'en', 'response_format': 'text'}
+                data = {'model': model, 'language': 'en', 'response_format': 'text'}
                 headers = {'Authorization': f'Bearer {api_key}'}
 
                 response = requests.post(url, headers=headers, files=files, data=data, timeout=300)
 
                 if response.status_code == 200:
                     transcript = response.text.strip()
-                    logger.info("TRANSCRIBE", f"OpenAI transcription complete: {video_name}", {
+                    logger.info("TRANSCRIBE", f"Transcription complete: {video_name}", {
                         "transcript_length": len(transcript),
                         "attempts": attempt + 1
                     })
@@ -94,6 +117,11 @@ def transcribe_video_openai(
 
     logger.error("TRANSCRIBE", f"Failed after {max_retries} attempts: {video_name}")
     return None
+
+
+def transcribe_video_openai(video_path: str, api_key: str, output_path: Optional[str] = None) -> Optional[str]:
+    """Legacy wrapper — calls transcribe_video with OpenAI defaults."""
+    return transcribe_video(video_path, api_key=api_key, output_path=output_path)
 
 
 def transcribe_video_local(

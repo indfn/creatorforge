@@ -1,16 +1,40 @@
-"""Environment and API key management for last30days skill."""
+"""Environment and API key management for last30days skill.
+
+Reads config from:
+  1. Environment variables (highest priority)
+  2. Project root .env file
+  3. ~/.config/last30days/.env (legacy fallback)
+
+Each provider can be:
+  - {NAME}_API_KEY    — API key (omit if auth not needed)
+  - {NAME}_BASE_URL   — Custom endpoint (omit to use default)
+  - {NAME}_ENABLED    — Set "false" to disable (default: "true")
+
+Providers with no API key requirement (Bird X, yt-dlp) use
+_ENABLED toggles only.
+"""
 
 import json
 import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 
+
+def _find_project_root() -> Optional[Path]:
+    """Walk up from cwd to find project root (where .env.example or setup.py lives)."""
+    cwd = Path.cwd().resolve()
+    for parent in [cwd] + list(cwd.parents):
+        if (parent / ".env.example").exists() or (parent / "setup.py").exists() or (parent / "requirements.txt").exists():
+            return parent
+    return None
+
+
+_PROJECT_ROOT = _find_project_root()
+
 # Allow override via environment variable for testing
 # Set LAST30DAYS_CONFIG_DIR="" for clean/no-config mode
-# Set LAST30DAYS_CONFIG_DIR="/path/to/dir" for custom config location
 _config_override = os.environ.get('LAST30DAYS_CONFIG_DIR')
 if _config_override == "":
-    # Empty string = no config file (clean mode)
     CONFIG_DIR = None
     CONFIG_FILE = None
 elif _config_override:
@@ -20,11 +44,13 @@ else:
     CONFIG_DIR = Path.home() / ".config" / "last30days"
     CONFIG_FILE = CONFIG_DIR / ".env"
 
+_PROJECT_ENV_FILE = (_PROJECT_ROOT / ".env") if _PROJECT_ROOT else None
 
-def load_env_file(path: Path) -> Dict[str, str]:
+
+def _load_env_file(path: Optional[Path]) -> Dict[str, str]:
     """Load environment variables from a file."""
     env = {}
-    if not path.exists():
+    if not path or not path.exists():
         return env
 
     with open(path, 'r') as f:
@@ -36,42 +62,84 @@ def load_env_file(path: Path) -> Dict[str, str]:
                 key, _, value = line.partition('=')
                 key = key.strip()
                 value = value.strip()
-                # Remove quotes if present
                 if value and value[0] in ('"', "'") and value[-1] == value[0]:
                     value = value[1:-1]
-                if key and value:
+                if key:
+                    comment_pos = value.find(' #')
+                    if comment_pos > 0:
+                        value = value[:comment_pos].strip()
                     env[key] = value
     return env
 
 
 def get_config() -> Dict[str, Any]:
-    """Load configuration from ~/.config/last30days/.env and environment."""
-    # Load from config file first (if configured)
-    file_env = load_env_file(CONFIG_FILE) if CONFIG_FILE else {}
+    """Load configuration from .env files and environment.
 
-    # Build config: process.env > .env file
-    keys = [
+    Priority: process.env > project .env > ~/.config/last30days/.env
+    """
+    # Load from files (lowest priority first)
+    legacy_env = _load_env_file(CONFIG_FILE) if CONFIG_FILE else {}
+    project_env = _load_env_file(_PROJECT_ENV_FILE) if _PROJECT_ENV_FILE else {}
+
+    # Merge: project overrides legacy, env overrides all
+    merged = {**legacy_env, **project_env}
+
+    # Provider configuration keys with defaults
+    provider_keys = [
+        # Reddit discovery (OpenAI Responses API)
         ('OPENAI_API_KEY', None),
-        ('XAI_API_KEY', None),
-        ('OPENROUTER_API_KEY', None),
-        ('PARALLEL_API_KEY', None),
-        ('BRAVE_API_KEY', None),
+        ('OPENAI_REDDIT_ENABLED', 'true'),
+        ('OPENAI_REDDIT_BASE_URL', None),
+        ('OPENAI_REDDIT_MODEL', 'gpt-4.1'),
         ('OPENAI_MODEL_POLICY', 'auto'),
         ('OPENAI_MODEL_PIN', None),
+
+        # X/Twitter search (xAI API)
+        ('XAI_API_KEY', None),
+        ('XAI_X_ENABLED', 'true'),
+        ('XAI_X_BASE_URL', None),
         ('XAI_MODEL_POLICY', 'latest'),
         ('XAI_MODEL_PIN', None),
+
+        # OpenRouter / Perplexity Sonar Pro
+        ('OPENROUTER_API_KEY', None),
+        ('OPENROUTER_SEARCH_ENABLED', 'true'),
+        ('OPENROUTER_BASE_URL', None),
+        ('OPENROUTER_MODEL', 'perplexity/sonar-pro'),
+
+        # Parallel AI Search
+        ('PARALLEL_API_KEY', None),
+        ('PARALLEL_SEARCH_ENABLED', 'true'),
+        ('PARALLEL_BASE_URL', None),
+
+        # Brave Search
+        ('BRAVE_API_KEY', None),
+        ('BRAVE_SEARCH_ENABLED', 'true'),
+        ('BRAVE_BASE_URL', None),
+
+        # YouTube (yt-dlp, no key)
+        ('YOUTUBE_ENABLED', 'true'),
     ]
 
     config = {}
-    for key, default in keys:
-        config[key] = os.environ.get(key) or file_env.get(key, default)
+    for key, default in provider_keys:
+        # Check env first, then merged file env, then default
+        config[key] = os.environ.get(key) or merged.get(key, default)
 
     return config
 
 
 def config_exists() -> bool:
-    """Check if configuration file exists."""
-    return CONFIG_FILE.exists()
+    """Check if any configuration file exists."""
+    if _PROJECT_ENV_FILE and _PROJECT_ENV_FILE.exists():
+        return True
+    return CONFIG_FILE.exists() if CONFIG_FILE else False
+
+
+def is_provider_enabled(config: dict, key: str) -> bool:
+    """Check if a provider is enabled via its _ENABLED flag."""
+    enabled = config.get(key, 'true')
+    return str(enabled).lower() in ('true', '1', 'yes')
 
 
 def get_available_sources(config: Dict[str, Any]) -> str:
@@ -79,8 +147,8 @@ def get_available_sources(config: Dict[str, Any]) -> str:
 
     Returns: 'all', 'both', 'reddit', 'reddit-web', 'x', 'x-web', 'web', or 'none'
     """
-    has_openai = bool(config.get('OPENAI_API_KEY'))
-    has_xai = bool(config.get('XAI_API_KEY'))
+    has_openai = bool(config.get('OPENAI_API_KEY')) and is_provider_enabled(config, 'OPENAI_REDDIT_ENABLED')
+    has_xai = bool(config.get('XAI_API_KEY')) and is_provider_enabled(config, 'XAI_X_ENABLED')
     has_web = has_web_search_keys(config)
 
     if has_openai and has_xai:
@@ -92,12 +160,15 @@ def get_available_sources(config: Dict[str, Any]) -> str:
     elif has_web:
         return 'web'
     else:
-        return 'web'  # Fallback: assistant WebSearch (no API keys needed)
+        return 'web'
 
 
 def has_web_search_keys(config: Dict[str, Any]) -> bool:
-    """Check if any web search API keys are configured."""
-    return bool(config.get('OPENROUTER_API_KEY') or config.get('PARALLEL_API_KEY') or config.get('BRAVE_API_KEY'))
+    """Check if any web search API keys are configured and enabled."""
+    openrouter = bool(config.get('OPENROUTER_API_KEY')) and is_provider_enabled(config, 'OPENROUTER_SEARCH_ENABLED')
+    parallel = bool(config.get('PARALLEL_API_KEY')) and is_provider_enabled(config, 'PARALLEL_SEARCH_ENABLED')
+    brave = bool(config.get('BRAVE_API_KEY')) and is_provider_enabled(config, 'BRAVE_SEARCH_ENABLED')
+    return openrouter or parallel or brave
 
 
 def get_web_search_source(config: Dict[str, Any]) -> Optional[str]:
@@ -105,13 +176,13 @@ def get_web_search_source(config: Dict[str, Any]) -> Optional[str]:
 
     Priority: Parallel AI > Brave > OpenRouter/Sonar Pro
 
-    Returns: 'parallel', 'brave', 'openrouter', or None
+    Each is checked for API key AND enabled flag.
     """
-    if config.get('PARALLEL_API_KEY'):
+    if config.get('PARALLEL_API_KEY') and is_provider_enabled(config, 'PARALLEL_SEARCH_ENABLED'):
         return 'parallel'
-    if config.get('BRAVE_API_KEY'):
+    if config.get('BRAVE_API_KEY') and is_provider_enabled(config, 'BRAVE_SEARCH_ENABLED'):
         return 'brave'
-    if config.get('OPENROUTER_API_KEY'):
+    if config.get('OPENROUTER_API_KEY') and is_provider_enabled(config, 'OPENROUTER_SEARCH_ENABLED'):
         return 'openrouter'
     return None
 
@@ -121,11 +192,10 @@ def get_missing_keys(config: Dict[str, Any]) -> str:
 
     Returns: 'all', 'both', 'reddit', 'x', 'web', or 'none'
     """
-    has_openai = bool(config.get('OPENAI_API_KEY'))
-    has_xai = bool(config.get('XAI_API_KEY'))
+    has_openai = bool(config.get('OPENAI_API_KEY')) and is_provider_enabled(config, 'OPENAI_REDDIT_ENABLED')
+    has_xai = bool(config.get('XAI_API_KEY')) and is_provider_enabled(config, 'XAI_X_ENABLED')
     has_web = has_web_search_keys(config)
 
-    # Check if Bird provides X access (import here to avoid circular dependency)
     from . import bird_x
     has_bird = bird_x.is_bird_installed() and bird_x.is_bird_authenticated()
 
@@ -134,13 +204,13 @@ def get_missing_keys(config: Dict[str, Any]) -> str:
     if has_openai and has_x and has_web:
         return 'none'
     elif has_openai and has_x:
-        return 'web'  # Missing web search keys
+        return 'web'
     elif has_openai:
-        return 'x'  # Missing X source (and possibly web)
+        return 'x'
     elif has_x:
-        return 'reddit'  # Missing OpenAI key (and possibly web)
+        return 'reddit'
     else:
-        return 'all'  # Missing everything
+        return 'all'
 
 
 def validate_sources(requested: str, available: str, include_web: bool = False) -> tuple[str, Optional[str]]:
@@ -154,29 +224,24 @@ def validate_sources(requested: str, available: str, include_web: bool = False) 
     Returns:
         Tuple of (effective_sources, error_message)
     """
-    # No API keys at all
     if available == 'none':
         if requested == 'auto':
             return 'web', "No API keys configured. The assistant can still search the web if it has a search tool."
         elif requested == 'web':
             return 'web', None
         else:
-            return 'web', f"No API keys configured. Add keys to ~/.config/last30days/.env for Reddit/X."
+            return 'web', f"No API keys configured. Add keys to project .env for Reddit/X."
 
-    # Web-only mode (only web search API keys)
     if available == 'web':
-        if requested == 'auto':
-            return 'web', None
-        elif requested == 'web':
+        if requested in ('auto', 'web'):
             return 'web', None
         else:
             return 'web', f"Only web search keys configured. Add OPENAI_API_KEY for Reddit, XAI_API_KEY for X."
 
     if requested == 'auto':
-        # Add web to sources if include_web is set
         if include_web:
             if available == 'both':
-                return 'all', None  # reddit + x + web
+                return 'all', None
             elif available == 'reddit':
                 return 'reddit-web', None
             elif available == 'x':
@@ -214,27 +279,21 @@ def validate_sources(requested: str, available: str, include_web: bool = False) 
 def get_x_source(config: Dict[str, Any]) -> Optional[str]:
     """Determine the best available X/Twitter source.
 
-    Priority: Bird (free) → xAI (paid API)
-
-    Args:
-        config: Configuration dict from get_config()
+    Priority: Bird (free) -> xAI (paid API)
 
     Returns:
         'bird' if Bird is installed and authenticated,
         'xai' if XAI_API_KEY is configured,
         None if no X source available.
     """
-    # Import here to avoid circular dependency
     from . import bird_x
 
-    # Check Bird first (free option)
     if bird_x.is_bird_installed():
         username = bird_x.is_bird_authenticated()
         if username:
             return 'bird'
 
-    # Fall back to xAI if key exists
-    if config.get('XAI_API_KEY'):
+    if config.get('XAI_API_KEY') and is_provider_enabled(config, 'XAI_X_ENABLED'):
         return 'xai'
 
     return None
@@ -243,7 +302,9 @@ def get_x_source(config: Dict[str, Any]) -> Optional[str]:
 def is_ytdlp_available() -> bool:
     """Check if yt-dlp is installed for YouTube search."""
     from . import youtube_yt
-    return youtube_yt.is_ytdlp_installed()
+    if not youtube_yt.is_ytdlp_installed():
+        return False
+    return True
 
 
 def get_x_source_status(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -256,9 +317,8 @@ def get_x_source_status(config: Dict[str, Any]) -> Dict[str, Any]:
     from . import bird_x
 
     bird_status = bird_x.get_bird_status()
-    xai_available = bool(config.get('XAI_API_KEY'))
+    xai_available = bool(config.get('XAI_API_KEY')) and is_provider_enabled(config, 'XAI_X_ENABLED')
 
-    # Determine active source
     if bird_status["authenticated"]:
         source = 'bird'
     elif xai_available:

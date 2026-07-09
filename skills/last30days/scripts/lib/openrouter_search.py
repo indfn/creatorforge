@@ -1,13 +1,12 @@
 """Perplexity Sonar Pro web search via OpenRouter for last30days skill.
 
-Uses OpenRouter's chat completions API with Perplexity's Sonar Pro model,
-which has built-in web search and returns citations with URLs, titles, and dates.
-This is the recommended web search backend -- highest quality results.
-
-API docs: https://openrouter.ai/docs/quickstart
-Model: perplexity/sonar-pro
+Configurable via env vars:
+  OPENROUTER_BASE_URL  — Custom endpoint (default: https://openrouter.ai/api/v1/chat/completions)
+  OPENROUTER_MODEL     — Model to use (default: perplexity/sonar-pro)
+  OPENROUTER_SEARCH_ENABLED — Set "false" to disable
 """
 
+import os
 import re
 import sys
 from typing import Any, Dict, List, Optional
@@ -15,10 +14,10 @@ from urllib.parse import urlparse
 
 from . import http
 
-ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "perplexity/sonar-pro"
+# Configurable endpoint and model
+ENDPOINT = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1/chat/completions")
+MODEL = os.getenv("OPENROUTER_MODEL", "perplexity/sonar-pro")
 
-# Domains to exclude (handled by Reddit/X search)
 EXCLUDED_DOMAINS = {
     "reddit.com", "www.reddit.com", "old.reddit.com",
     "twitter.com", "www.twitter.com", "x.com", "www.x.com",
@@ -42,7 +41,7 @@ def search_web(
         depth: 'quick', 'default', or 'deep'
 
     Returns:
-        List of result dicts with keys: url, title, snippet, source_domain, date, relevance
+        List of result dicts
 
     Raises:
         http.HTTPError: On API errors
@@ -81,23 +80,13 @@ def search_web(
 
 
 def _normalize_results(response: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Convert Sonar Pro response to websearch item schema.
-
-    Sonar Pro returns:
-    - search_results: [{title, url, date}] -- structured source metadata
-    - citations: [url, ...] -- flat list of cited URLs
-    - choices[0].message.content -- the synthesized text with [N] references
-
-    We prefer search_results (richer metadata), fall back to citations.
-    """
+    """Convert Sonar Pro response to websearch item schema."""
     items = []
 
-    # Try search_results first (has title, url, date)
     search_results = response.get("search_results", [])
     if isinstance(search_results, list) and search_results:
         items = _parse_search_results(search_results)
 
-    # Fall back to citations if no search_results
     if not items:
         citations = response.get("citations", [])
         content = _get_content(response)
@@ -111,18 +100,13 @@ def _normalize_results(response: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def _parse_search_results(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Parse the search_results array from Sonar Pro."""
     items = []
-
     for i, result in enumerate(results):
         if not isinstance(result, dict):
             continue
-
         url = result.get("url", "")
         if not url:
             continue
-
-        # Skip excluded domains
         try:
             domain = urlparse(url).netloc.lower()
             if domain in EXCLUDED_DOMAINS:
@@ -131,15 +115,11 @@ def _parse_search_results(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]
                 domain = domain[4:]
         except Exception:
             domain = ""
-
         title = str(result.get("title", "")).strip()
         if not title:
             continue
-
-        # Sonar Pro provides dates in search_results
         date = result.get("date")
         date_confidence = "med" if date else "low"
-
         items.append({
             "id": f"W{i+1}",
             "title": title[:200],
@@ -148,22 +128,17 @@ def _parse_search_results(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]
             "snippet": str(result.get("snippet", result.get("description", ""))).strip()[:500],
             "date": date,
             "date_confidence": date_confidence,
-            "relevance": 0.7,  # Sonar Pro results are generally high quality
+            "relevance": 0.7,
             "why_relevant": "",
         })
-
     return items
 
 
 def _parse_citations(citations: List[str], content: str) -> List[Dict[str, Any]]:
-    """Parse the flat citations array, enriching with content context."""
     items = []
-
     for i, url in enumerate(citations):
         if not isinstance(url, str) or not url:
             continue
-
-        # Skip excluded domains
         try:
             domain = urlparse(url).netloc.lower()
             if domain in EXCLUDED_DOMAINS:
@@ -172,10 +147,7 @@ def _parse_citations(citations: List[str], content: str) -> List[Dict[str, Any]]
                 domain = domain[4:]
         except Exception:
             domain = ""
-
-        # Try to extract title from content references like [1] Title...
         title = _extract_title_for_citation(content, i + 1) or domain
-
         items.append({
             "id": f"W{i+1}",
             "title": title[:200],
@@ -187,12 +159,10 @@ def _parse_citations(citations: List[str], content: str) -> List[Dict[str, Any]]
             "relevance": 0.6,
             "why_relevant": "",
         })
-
     return items
 
 
 def _get_content(response: Dict[str, Any]) -> str:
-    """Extract the text content from the chat completion response."""
     try:
         return response["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError):
@@ -200,17 +170,12 @@ def _get_content(response: Dict[str, Any]) -> str:
 
 
 def _extract_title_for_citation(content: str, index: int) -> Optional[str]:
-    """Try to extract a title near a citation reference [N] in the content."""
     if not content:
         return None
-
-    # Look for patterns like [1] Title or [1](url) Title
     pattern = rf'\[{index}\][)\s]*([^\[\n]{{5,80}})'
     match = re.search(pattern, content)
     if match:
         title = match.group(1).strip().rstrip('.')
-        # Clean up markdown artifacts
         title = re.sub(r'[*_`]', '', title)
         return title if len(title) > 3 else None
-
     return None

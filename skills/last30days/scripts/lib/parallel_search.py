@@ -1,22 +1,20 @@
 """Parallel AI web search for last30days skill.
 
-Uses the Parallel AI Search API to find web content (blogs, docs, news, tutorials).
-This is the preferred web search backend -- it returns LLM-optimized results
-with extended excerpts ranked by relevance.
-
-API docs: https://docs.parallel.ai/search-api/search-quickstart
+Configurable via env vars:
+  PARALLEL_BASE_URL      — Custom endpoint (default: https://api.parallel.ai/v1beta/search)
+  PARALLEL_SEARCH_ENABLED — Set "false" to disable
 """
 
-import json
+import os
 import sys
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 from . import http
 
-ENDPOINT = "https://api.parallel.ai/v1beta/search"
+# Configurable endpoint
+ENDPOINT = os.getenv("PARALLEL_BASE_URL", "https://api.parallel.ai/v1beta/search")
 
-# Domains to exclude (handled by Reddit/X search)
 EXCLUDED_DOMAINS = {
     "reddit.com", "www.reddit.com", "old.reddit.com",
     "twitter.com", "www.twitter.com", "x.com", "www.x.com",
@@ -40,7 +38,7 @@ def search_web(
         depth: 'quick', 'default', or 'deep'
 
     Returns:
-        List of result dicts with keys: url, title, snippet, source_domain, date, relevance
+        List of result dicts
 
     Raises:
         http.HTTPError: On API errors
@@ -74,17 +72,9 @@ def search_web(
 
 
 def _normalize_results(response: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Convert Parallel AI response to websearch item schema.
-
-    Args:
-        response: Raw API response
-
-    Returns:
-        List of normalized result dicts
-    """
+    """Convert Parallel AI response to websearch item schema."""
     items = []
 
-    # Handle different response shapes
     results = response.get("results", [])
     if not isinstance(results, list):
         return items
@@ -97,12 +87,10 @@ def _normalize_results(response: Dict[str, Any]) -> List[Dict[str, Any]]:
         if not url:
             continue
 
-        # Skip excluded domains
         try:
             domain = urlparse(url).netloc.lower()
             if domain in EXCLUDED_DOMAINS:
                 continue
-            # Clean domain for display
             if domain.startswith("www."):
                 domain = domain[4:]
         except Exception:
@@ -114,7 +102,6 @@ def _normalize_results(response: Dict[str, Any]) -> List[Dict[str, Any]]:
         if not title and not snippet:
             continue
 
-        # Extract relevance score if provided
         relevance = result.get("relevance_score", result.get("relevance", 0.6))
         try:
             relevance = min(1.0, max(0.0, float(relevance)))

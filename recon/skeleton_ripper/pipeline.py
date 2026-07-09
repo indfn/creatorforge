@@ -24,7 +24,7 @@ from recon.utils.logger import get_logger
 # Import recon scrapers (replaces ReelRecon's cookie-based scraper)
 from recon.scraper.instagram import InstaClient
 from recon.scraper.downloader import (
-    transcribe_video_openai,
+    transcribe_video,
     transcribe_video_local,
     load_whisper_model,
     download_direct,
@@ -77,12 +77,15 @@ class JobConfig:
     usernames: list[str]
     videos_per_creator: int = 3
     platform: str = "instagram"
-    llm_provider: str = "openai"
+    llm_provider: str = "custom"
     llm_model: str = "gpt-4o-mini"
     min_valid_ratio: float = 0.6
     transcribe_provider: str = "openai"
     whisper_model: str = "small.en"
     openai_api_key: Optional[str] = None
+    transcribe_api_key: Optional[str] = None
+    transcribe_base_url: str = ""
+    transcribe_model: str = "whisper-1"
 
 
 @dataclass
@@ -200,7 +203,10 @@ class SkeletonRipperPipeline:
     def _scrape_and_transcribe(self, config: JobConfig, progress: JobProgress, on_progress: Optional[Callable]) -> list[dict]:
         """Scrape videos and get transcripts using Instaloader for IG."""
         transcripts = []
-        openai_key = config.openai_api_key or os.getenv('OPENAI_API_KEY')
+        openai_key = config.openai_api_key or os.getenv('OPENAI_API_KEY') or os.getenv('LLM_API_KEY')
+        transcribe_key = config.transcribe_api_key or openai_key
+        transcribe_base_url = config.transcribe_base_url or os.getenv('TRANSCRIBE_BASE_URL', 'https://api.openai.com/v1')
+        transcribe_model = config.transcribe_model or os.getenv('TRANSCRIBE_MODEL', 'whisper-1')
 
         # Load local Whisper if needed
         whisper_model = None
@@ -302,7 +308,12 @@ class SkeletonRipperPipeline:
                 # Transcribe
                 transcript_text = None
                 if config.transcribe_provider == 'openai' and openai_key:
-                    transcript_text = transcribe_video_openai(str(video_path), openai_key)
+                    transcript_text = transcribe_video(
+                        str(video_path),
+                        api_key=transcribe_key,
+                        base_url=transcribe_base_url,
+                        model=transcribe_model,
+                    )
                 elif whisper_model:
                     transcript_text = transcribe_video_local(str(video_path), whisper_model)
 
@@ -403,29 +414,42 @@ class SkeletonRipperPipeline:
 
 def create_job_config(
     usernames: list[str], videos_per_creator: int = 3, platform: str = "instagram",
-    llm_provider: str = "openai", llm_model: str = "gpt-4o-mini",
+    llm_provider: str = "custom", llm_model: str = "gpt-4o-mini",
     transcribe_provider: str = "openai", whisper_model: str = "small.en",
-    openai_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = None,
+    transcribe_api_key: Optional[str] = None,
+    transcribe_base_url: str = "",
+    transcribe_model: str = "whisper-1",
 ) -> JobConfig:
     return JobConfig(
         usernames=usernames, videos_per_creator=videos_per_creator,
         platform=platform, llm_provider=llm_provider, llm_model=llm_model,
         transcribe_provider=transcribe_provider, whisper_model=whisper_model,
-        openai_api_key=openai_api_key
+        openai_api_key=openai_api_key,
+        transcribe_api_key=transcribe_api_key,
+        transcribe_base_url=transcribe_base_url,
+        transcribe_model=transcribe_model,
     )
 
 
 def run_skeleton_ripper(
     usernames: list[str], videos_per_creator: int = 3, platform: str = "instagram",
-    llm_provider: str = "openai", llm_model: str = "gpt-4o-mini",
+    llm_provider: str = "custom", llm_model: str = "gpt-4o-mini",
     transcribe_provider: str = "openai", whisper_model: str = "small.en",
-    openai_api_key: Optional[str] = None, on_progress: Optional[Callable] = None
+    openai_api_key: Optional[str] = None,
+    transcribe_api_key: Optional[str] = None,
+    transcribe_base_url: str = "",
+    transcribe_model: str = "whisper-1",
+    on_progress: Optional[Callable] = None
 ) -> JobResult:
     config = create_job_config(
         usernames=usernames, videos_per_creator=videos_per_creator,
         platform=platform, llm_provider=llm_provider, llm_model=llm_model,
         transcribe_provider=transcribe_provider, whisper_model=whisper_model,
-        openai_api_key=openai_api_key
+        openai_api_key=openai_api_key,
+        transcribe_api_key=transcribe_api_key,
+        transcribe_base_url=transcribe_base_url,
+        transcribe_model=transcribe_model,
     )
     pipeline = SkeletonRipperPipeline()
     return pipeline.run(config, on_progress=on_progress)
