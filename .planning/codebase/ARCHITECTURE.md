@@ -1,201 +1,203 @@
 # Architecture
 
-**Analysis Date:** 2026-07-09
+**Analysis Date:** 2026-07-10
 
 ## Pattern Overview
 
-**Overall:** Modular monolith — a single repository with clearly separated, independently invocable modules. The system is a "trainable social media coaching system for Claude Code" that discovers content topics, develops angles, generates scripts, and learns from performance data through a feedback loop.
+**Overall:** Modular pipeline architecture with agent brain feedback loop
+
+The system is structured around a 5-stage content lifecycle: **Discover → Angle → Script → Post → Analyze**, with each stage feeding into the next and the final stage updating the central "agent brain" that influences future discovery.
 
 **Key Characteristics:**
-- **Claude Code command-driven**: 7 `/viral:*` Markdown commands (in `.claude/commands/`) orchestrate the pipeline. Each command is a structured prompt that Claude interprets and executes against the codebase.
-- **JSONL+JSON data pipeline**: Data flows through flat JSONL files (`topics/`, `angles/`, `hooks/`, `scripts/`) with a central `data/agent-brain.json` acting as the evolving system memory.
-- **Competitor intelligence via `recon/`**: Ported from ReelRecon, this is the scraper/transcriber/analyzer subsystem — the most complex module.
-- **JSON Schema contracts**: `schemas/` define the data shapes for every entity in the system.
-- **Flat script utilities**: Shell and Python scripts serve as CLI entry points for analytics fetching, PDF generation, and init/setup.
+- **Pipeline-oriented**: Each stage (recon, scoring, production, publishing, analytics) is a self-contained module with clear input/output contracts
+- **Agent-brain centric**: A central `agent-brain.json` file stores ICP (Ideal Customer Profile), pillars, learning weights, and competitor config — all modules read from and write to this file
+- **JSON-schema validated**: All inter-module data is validated against JSON Schema draft-07 contracts in `schemas/`
+- **Ported from ReelRecon**: Core recon and skeleton ripper modules were ported from an external project (`ReelRecon`) with imports and paths adjusted
+- **Dual-interface**: Commands available both as AI CLI commands (`/viral:*`) in `.agents/commands/` and as programmatic Python modules in `agent_core/`
+- **Multi-channel**: Supports multiple YouTube channels via `channels/{Name}/` directories with independent configs and brains
 
-## Component Diagram (text-based)
+## Layers
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        CLAUDE CODE CLI                              │
-│  .claude/commands/viral-{setup,onboard,discover,angle,script,      │
-│                          analyze,update-brain}.md                   │
-└──────────┬──────────────────────────────────┬──────────────────────┘
-           │ interprets & orchestrates         │ triggers
-           ▼                                   ▼
-┌──────────────────────────┐     ┌──────────────────────────────┐
-│      recon/ (Recon)      │     │    scripts/ (Utilities)      │
-│                          │     │                              │
-│  scraper/                │     │  fetch-ig-insights.py        │
-│  ├── instagram.py        │     │  fetch-yt-analytics.py       │
-│  ├── youtube.py          │     │  generate-pdf.py             │
-│  └── downloader.py       │     │  init-viral-command.sh       │
-│                          │     │  run-recon-ui.sh             │
-│  skeleton_ripper/        │     │  setup-ig-token.py           │
-│  ├── pipeline.py         │     │  setup-yt-oauth.py           │
-│  ├── extractor.py        │     │  refresh-ig-token.sh         │
-│  ├── aggregator.py       │     └──────────────────────────────┘
-│  ├── synthesizer.py      │
-│  ├── llm_client.py       │     ┌──────────────────────────────┐
-│  ├── cache.py            │     │      scoring/                │
-│  └── prompts.py          │     │                              │
-│                          │     │  engine.py                   │
-│  storage/                │     │  rescore.py                  │
-│  ├── database.py         │     └──────────┬───────────────────┘
-│  └── models.py           │                │
-│                          │                ▼
-│  utils/                  │     ┌──────────────────────────────┐
-│  ├── logger.py           │     │      data/                   │
-│  ├── retry.py            │     │                              │
-│  └── state_manager.py    │     │  agent-brain.json            │
-│                          │     │  topics/*.jsonl              │
-│  web/                    │     │  angles.jsonl                │
-│  ├── app.py (Flask)      │     │  hooks.jsonl                │
-│  ├── templates/*.html    │     │  scripts.jsonl              │
-│  └── static/             │     │  cta-templates.json         │
-│                          │     │  analytics/raw/              │
-│  config.py               │     │  hooks/                      │
-│  bridge.py               │     │  insights/                   │
-│  tracker.py              │     └──────────────────────────────┘
-└──────────────────────────┘
-```
+**Discovery Layer (Recon):**
+- Purpose: Competitor content scraping, transcription, pattern extraction, and topic generation
+- Location: `agent_core/recon/`
+- Contains: Instagram/YouTube scrapers, video downloader, transcript cache, LLM-based skeleton extractor, pattern aggregator/synthesizer, bridge to topic pipeline
+- Depends on: `agent_core/scoring/` (engine), `agent_core/recon/config` (credentials)
+- Used by: Recon Flask UI (`agent_core/recon/web/app.py`), skeleton ripper pipeline, bridge module
 
-## Key Modules / Components
+**Scoring Layer:**
+- Purpose: Score topics against agent brain ICP keywords, pillars, and learning weights
+- Location: `agent_core/scoring/`
+- Contains: `engine.py` (4-criteria scoring: icp_relevance, timeliness, content_gap, proof_potential), `rescore.py` (bulk rescore utility)
+- Depends on: `agent_core/data/agent-brain.json` (read-only)
+- Used by: Recon bridge (`agent_core/recon/bridge.py`), rescore CLI, `agent_core/scoring/__init__.py` exports
 
-### `recon/` — Competitor Intelligence (2,620 lines)
-- **Purpose**: Scrape competitor content (Instagram & YouTube), transcribe videos, extract content skeletons (hook/value/CTA), aggregate patterns, and synthesize actionable templates.
-- **Entry points**: `recon/web/app.py` (Flask UI, port 5001), `recon/bridge.py` (programmatic from Claude commands)
-- **Key sub-modules**:
-  - `scraper/` — Instagram via `instaloader` (`instagram.py`, 242 lines), YouTube via `yt-dlp` (`youtube.py`, 194 lines), video download + transcription (`downloader.py`, 224 lines, OpenAI Whisper API or local Whisper)
-  - `skeleton_ripper/` — Pipeline orchestration (`pipeline.py`, 431 lines), LLM-based extraction (`extractor.py`, 142 lines), aggregation (`aggregator.py`, 117 lines), synthesis (`synthesizer.py`, 130 lines), multi-provider LLM client (`llm_client.py`, 203 lines, supports OpenAI/Anthropic/Google/Ollama), prompt templates (`prompts.py`, 202 lines), transcript caching (`cache.py`, 98 lines)
-  - `storage/` — SQLite asset management (`database.py`, 104 lines), CRUD models (`models.py`, 195 lines)
-  - `utils/` — Singleton logger with file rotation (`logger.py`, 197 lines), retry with exponential backoff (`retry.py`, 109 lines), job state manager (`state_manager.py`, 57 lines)
-  - `web/` — Flask UI dashboard (`app.py`, 382 lines), 3 Jinja2 templates (`competitors.html`, `skeleton_ripper.html`, `settings.html`), tactical CSS (`tactical.css`), minimal JS (`app.js`)
-  - `config.py` — Reads competitors from `agent-brain.json`, manages credentials from `.env` or `.credentials` file (129 lines)
-  - `bridge.py` — Converts skeletons → scored topics matching `topic.schema.json`, imports `scoring.engine` (244 lines)
-  - `tracker.py` — Deduplication state manager, tracks which content has been processed (141 lines)
+**Analytics Layer:**
+- Purpose: Performance data collection, cross-channel insight aggregation, brain evolution
+- Location: `agent_core/analytics/`
+- Contains: `collector.py` (YouTube Analytics API stub), `insights.py` (cross-channel aggregation stub), `brain_updater.py` (learning weight evolution stub)
+- Depends on: `agent_core/data/` (analytics entries, brain.json)
+- Used by: AI commands (`/viral:analyze`, `/viral:update-brain`)
 
-### `scoring/` — Topic Scoring Engine (450 lines)
-- **Purpose**: Score topics against the agent brain's ICP keywords, content pillars, and learning weights. Pure computation, no external dependencies beyond stdlib.
-- **Dependencies**: Read-only on `data/agent-brain.json`. Does NOT import from `recon/`.
-- `engine.py` (292 lines): 4-criteria scorer — `icp_relevance`, `timeliness`, `content_gap`, `proof_potential` — with competitor validation bonuses and weighted total calculation
-- `rescore.py` (132 lines): CLI script to re-score all topics when learning weights change
+**Publishing Layer:**
+- Purpose: YouTube upload, OAuth management, scheduling, metadata optimization
+- Location: `agent_core/publishing/`
+- Contains: `uploader.py` (YouTube Data API v3 upload CLI), `oauth.py` (Google OAuth handler stub), `scheduler.py` (peak-time calculator stub), `metadata.py` (SEO metadata generator stub)
+- Depends on: `channels/{name}/channel_config.json` (per-channel YouTube config)
+- Used by: AI command (`/viral:post`)
 
-### `schemas/` — JSON Schema Contracts (10 files)
-- Defines schemas for: `agent-brain`, `topic`, `angle`, `hook`, `swipe-hook`, `script`, `insight`, `analytics-entry`, `competitor-reel`
-- All draft-07, with enforced `additionalProperties: false`
+**Production Layer:**
+- Purpose: Audio generation, visual/scene rendering, pre-render validation
+- Location: `production/`
+- Contains: `AudioGeneration/` (TTS via Gemini 3.1 Flash, force alignment stub), `RenderEngine/` (linting, HTML templates), `VisualGeneration/` (asset scraping, SFX scraping, fallback chart generation stubs)
+- Depends on: `channels/{name}/active_production/` (working directory), external APIs (Gemini TTS, Pexels, Pixabay)
+- Used by: AI commands (`/viral:produce`, `/viral:render`)
 
-### `scripts/` — Entry Points & Automation (8 scripts)
-- `init-viral-command.sh` (303 lines): Bootstrap — creates directories, init data files, installs deps, symlinks Claude commands
-- `run-recon-ui.sh` (39 lines): Launches Flask Recon UI on port 5001
-- `generate-pdf.py` (309 lines): PDF lead magnet generation from scripts using ReportLab
-- `fetch-yt-analytics.py` (296 lines): YouTube CTR, watch time, subscribers via Data API + Analytics API
-- `fetch-ig-insights.py` (285 lines): Instagram Graph API insights (views, reach, saves, follower growth)
-- `setup-ig-token.py` / `setup-yt-oauth.py`: OAuth setup for analytics
-- `refresh-ig-token.sh`: Token refresh utility
-- `init-data.sh`: Data initialization
-
-### `skills/last30days/` — Bundled Discovery Skill
-- External skill for researching topics across Reddit, X, YouTube, and web
-- Own test suite (`tests/`), fixtures (`fixtures/`), agent config (`agents/openai.yaml`)
-- Library at `scripts/lib/` with 20+ modules for search, enrichment, scoring
-
-### `data/` — Data Storage
-- `agent-brain.json`: Central evolving system memory (identity, ICP, pillars, competitors, learning weights, performance)
-- `topics/*.jsonl`: Discovered topics with scores
-- `hooks.jsonl`, `angles.jsonl`, `scripts.jsonl`: Pipeline output JSONL files
-- `cta-templates.json`: Platform-specific CTA templates (5 platforms, 6 CTA types each)
-- `analytics/raw/`: Raw analytics data
-- `recon/competitors/`: Per-competitor scraped data (`reels.json`/`videos.json`)
-- `recon/reports/`: Skeleton ripper analysis reports
-- `recon/cache/`: Cached transcripts
-
-### `assets/` — Brand Assets
-- `gvb-logo.svg`, `install-preview.svg`
+**Configuration Layer:**
+- Purpose: Environment loading, credential management, competitor config
+- Location: `agent_core/recon/config.py`
+- Contains: `ReconConfig` dataclass, `Competitor` dataclass, credential loading (`.env` → `.credentials` → env vars cascade), competitor loading from `agent-brain.json`
+- Used by: All recon modules, Flask UI
 
 ## Data Flow
 
-**Discovery Pipeline (competitor → topic → angle → script → PDF):**
+**Competitor Discovery Flow:**
 
-1. **Scrape**: Claude command `/viral:discover` triggers `recon/bridge.py` → `recon/skeleton_ripper/pipeline.py` → Instagram via `instaloader` or YouTube via `yt-dlp`
-2. **Transcribe**: Video files downloaded to temp dir, transcribed via OpenAI Whisper API (or local Whisper), cached to `data/recon/cache/`
-3. **Extract**: `BatchedExtractor` sends transcripts to LLM (OpenAI/Anthropic/Google/Ollama), extracts structured skeletons (hook, value, CTA)
-4. **Aggregate**: `SkeletonAggregator` produces stats (avg hook length, technique distribution, view stats)
-5. **Synthesize**: `PatternSynthesizer` calls LLM for fill-in-the-blank templates
-6. **Bridge**: `bridge.py` converts skeletons → topics → `scoring.engine.score_topic()` → saves to `data/topics/*.jsonl`
-7. **Angle → Script → Analyze**: Subsequent `/viral:angle`, `/viral:script`, `/viral:analyze` commands consume the topics pipeline
-8. **Feedback Loop**: `/viral:analyze` updates `agent-brain.json` with performance learning weights, closing the `DISCOVER → ANGLE → SCRIPT → POST → ANALYZE` cycle
+1. User triggers `/viral:discover` or clicks "Scrape" in Recon UI
+2. `InstaClient` (Instagram) or `get_channel_videos` (YouTube) scrapes competitor content
+3. Video files downloaded to `data/recon/temp/` and transcribed via OpenAI Whisper API (or local Whisper)
+4. Transcripts cached in `data/recon/cache/`; `TranscriptCache` prevents redundant API calls
+5. `SkeletonRipperPipeline` orchestrates: scrape → transcribe → extract (LLM-based skeleton parsing) → aggregate → synthesize
+6. Extracted skeletons stored in `data/recon/reports/{timestamp}_{jobid}/skeletons.json`
+7. `bridge.py` converts skeletons into scored topics via `scoring/engine.py`
+8. Topics saved as JSONL to `data/topics/{date}-topics.jsonl`
+9. `tracker.py` persists seen-content state to `data/recon/tracker-state.json` to prevent duplicate processing
+
+**Production Flow:**
+
+1. Script data flows to `production/AudioGeneration/tts_generation.py` for TTS generation
+2. Audio goes to `production/AudioGeneration/force_align.py` for word-level timestamp alignment
+3. `production/RenderEngine/linter.py` validates the production workspace
+4. Visual assets fetched via `production/VisualGeneration/` scrapers
+5. Final render uses `production/RenderEngine/` templates for assembly
+
+**Brain Feedback Loop:**
+
+1. Analytics collected via `analytics/collector.py`
+2. Patterns aggregated via `analytics/insights.py`
+3. Learning weights updated via `analytics/brain_updater.py`
+4. Updated `agent-brain.json` influences future `scoring/engine.py` scores
 
 **State Management:**
-- `tracker.py` persists seen content IDs in `data/recon/tracker-state.json` to avoid duplicate processing
-- `state_manager.py` persists job states as JSON files in `data/recon/state/`
-- SQLite database at `data/recon/recon.db` for asset management (org mode for saved assets)
+- **Persistent Brain**: `data/agent-brain.json` — the central state file containing ICP, pillars, competitors, learning weights
+- **Per-channel Config**: `channels/{name}/channel_config.json` — YouTube credentials, TTS voice config, render settings
+- **Per-channel Brain**: `channels/{name}/brain.json` — channel-specific brain state
+- **Tracker State**: `data/recon/tracker-state.json` — deduplication state for competitor content processing
+- **Transcript Cache**: `data/recon/cache/` — filesystem cache of transcribed competitor videos
+- **SQLite DB**: `data/recon/recon.db` — asset and collection management with FTS5 full-text search
+- **Topics Store**: `data/topics/{date}-topics.jsonl` — daily JSONL files of scored topic entries
+
+## Key Abstractions
+
+**Agent Brain:**
+- Purpose: Central knowledge store defining the creator's ICP, content pillars, competitors, and learning weights
+- File: `data/agent-brain.json`
+- Pattern: JSON document consumed read-only by scoring engine, read/write by brain updater
+
+**Skeleton Ripper Pipeline:**
+- Purpose: Multi-stage pipeline for competitor content analysis: scrape → transcribe → extract → aggregate → synthesize
+- File: `agent_core/recon/skeleton_ripper/pipeline.py`
+- Pattern: Stateful pipeline `SkeletonRipperPipeline` with progress callback and dataclass-based job configuration (`JobConfig`, `JobProgress`, `JobResult`)
+- Stages: 5 explicit stages tracked by `JobStatus` enum with dataclass progress tracking
+
+**LLM Client:**
+- Purpose: Multi-provider abstraction for LLM calls (OpenAI-compatible, Ollama local)
+- File: `agent_core/recon/skeleton_ripper/llm_client.py`
+- Pattern: Provider registry with `ProviderConfig` dataclasses, retry logic with exponential backoff, configurable via env vars
+
+**Scoring Engine:**
+- Purpose: Stateless function collection that scores topic text against brain context
+- File: `agent_core/scoring/engine.py`
+- Pattern: Pure functions with no side effects (read-only on brain file), 4 criteria with weighted total
+
+**Recon Config:**
+- Purpose: Cascading configuration loader with `.env` → `.credentials` → env vars priority
+- File: `agent_core/recon/config.py`
+- Pattern: Dataclass-based configuration with static factory methods, credential masking
+
+**ReconLogger:**
+- Purpose: Singleton thread-safe logger with file rotation, error codes, and structured JSON logging
+- File: `agent_core/recon/utils/logger.py`
+- Pattern: Singleton with thread-safe initialization, JSON log entries, error code generation
+
+**Asset/Collection Model:**
+- Purpose: SQLite-backed CRUD for saved assets with full-text search
+- File: `agent_core/recon/storage/models.py`
+- Pattern: Dataclass-derived ORM with class methods for CRUD, FTS5 integration
+
+**Production Models:**
+- Purpose: Validate production workspace readiness before render
+- File: `production/RenderEngine/linter.py`
+- Pattern: File existence/validity checks returning structured issue lists with severity levels
 
 ## Entry Points
 
-| Entry Point | Path | Trigger |
-|---|---|---|
-| Claude Command (7) | `.claude/commands/viral-*.md` | User types `/viral:*` in Claude Code |
-| Recon UI (Flask) | `recon/web/app.py` main() | `bash scripts/run-recon-ui.sh` or `python -m recon.web.app` |
-| Topic rescore CLI | `scoring/rescore.py` main | `python scoring/rescore.py [file]` |
-| PDF generator | `scripts/generate-pdf.py` | `python scripts/generate-pdf.py --script-id X` |
-| Bootstrap | `scripts/init-viral-command.sh` | `bash scripts/init-viral-command.sh` |
-| Installation | `install.sh` | `bash <(curl -fsSL ...)` |
-| Cron automation | N/A | `docs/CRON-SETUP.md` details daily+weekly cron jobs |
+**Recon UI (Flask Web App):**
+- Location: `agent_core/recon/web/app.py`
+- Triggers: `python3 -m agent_core.recon.web.app` or `bash scripts/run-recon-ui.sh`
+- Responsibilities: Competitor management, skeleton analysis, push-to-discover bridge, credential settings
+- Port: 5001, host: 0.0.0.0
+- Routes: `/` (dashboard), `/skeleton-ripper` (analysis page), `/settings` (credentials)
+- API routes: `/api/competitors`, `/api/competitors/*/scrape`, `/api/recon/analyze`, `/api/recon/push-to-discover`, `/api/settings`
 
-## Module Boundaries & Coupling
+**Python Module Entry Points:**
+- `agent_core/scoring/rescore.py` — CLI for rescoring existing topics (`python3 scoring/rescore.py [file]`)
+- `agent_core/publishing/uploader.py` — CLI for YouTube upload (`python3 -m agent_core.publishing.uploader --channel ChannelA`)
+- `agent_core/recon/skeleton_ripper/pipeline.py` — `run_skeleton_ripper()` function as programmatic entry
+- `agent_core/recon/bridge.py` — `generate_topics_from_skeletons()` as integration point
 
-| Depender | Depends on | For |
-|---|---|---|
-| `recon.bridge` | `scoring.engine` (via `sys.path` insert) | Topic scoring during skeleton→topic conversion |
-| `recon.skeleton_ripper.pipeline` | `recon.scraper.instagram`, `recon.scraper.downloader`, `recon.config` | Instagram scraping + transcription |
-| `recon.skeleton_ripper.extractor` | `recon.skeleton_ripper.llm_client`, `recon.skeleton_ripper.prompts` | LLM extraction calls |
-| `recon.skeleton_ripper.synthesizer` | `recon.skeleton_ripper.llm_client`, `recon.skeleton_ripper.aggregator` | Pattern synthesis |
-| `recon.web.app` | `recon.config`, `recon.scraper.*`, `recon.skeleton_ripper.*`, `recon.bridge`, `recon.storage.database` | Full frontend integration |
-| `scoring.engine` | No `recon/*` imports | Purity — only reads `agent-brain.json` |
-| `scripts/*.py` | External APIs (requests, Google API, ReportLab) | Standalone utilities |
-| `skills/last30days/` | Bundled skill — independent of `recon/` and `scoring/` | Self-contained research |
+**Scripts Entry Points:**
+- `scripts/fetch-yt-analytics.py` — YouTube Analytics data fetcher
+- `scripts/fetch-ig-insights.py` — Instagram Insights data fetcher
+- `scripts/setup-yt-oauth.py` — YouTube OAuth setup
+- `scripts/setup-ig-token.py` — Instagram token setup
+- `scripts/refresh-ig-token.sh` — Instagram token refresh
+- `scripts/generate-pdf.py` — PDF lead magnet generator
+- `scripts/run-recon-ui.sh` — Launch Recon Flask UI
+- `scripts/init-creatorforge.sh` — Full bootstrap script
 
-## Configuration & Environment
-
-**Environment Configuration:**
-- API keys stored in `.env` (gitignored) — read by `recon/config.py` via `load_credentials()` which checks env vars first, then `.env.example` shipped with empty stubs
-- Secondary fallback: `data/recon/.credentials` file for non-env-variable config
-- Agent brain at `data/agent-brain.json` (git-tracked) contains ICP, pillars, platforms, competitors, learning weights — all non-secret configuration
-
-**Build:**
-- `requirements.txt` — Python deps (Flask, requests, yt-dlp, reportlab, google-api-client, python-dotenv)
-- Optional: `instaloader` (IG scraping), `openai-whisper` (local transcription) — commented out in requirements, installed separately
-
-**Platform Requirements:**
-- Python 3.8+ (recommended 3.10+)
-- Node.js 18+
-- Claude Code CLI
-- CLI tools: `yt-dlp`, `instaloader` (installed via pip)
-- OpenAI API key (for Whisper transcription), YouTube Data API v3 key (for discovery + analytics)
+**AI CLI Commands:**
+- Location: `.agents/commands/`
+- `/viral:setup` — Platform connection wizard
+- `/viral:onboard` — Agent brain setup
+- `/viral:discover` — Topic discovery
+- `/viral:angle` — Angle development
+- `/viral:script` — Script generation
+- `/viral:analyze` — Performance analytics
+- `/viral:update-brain` — Brain evolution
 
 ## Error Handling
 
-**Strategy:** Structured error tracking via custom logger in `recon/utils/logger.py` — generates unique error codes (`CATEGORY-TIMESTAMP-HASH`), writes JSONL-structured logs to `data/recon/logs/`, separates errors into `errors.log`, supports error registry lookup.
+**Strategy:** Defensive with structured logging and error codes
 
 **Patterns:**
-- Retry with exponential backoff + jitter via `recon/utils/retry.py` — pre-configured `network_retry` and `api_retry` decorators
-- LLM client retries on 429/5xx/connection errors with configurable max retries
-- Transcription retries with backoff for both OpenAI API and local Whisper
-- Batched extraction with binary-split retry on parse failures
-- Pipeline failure handling captures errors per creator, continues processing remaining creators
-- Thread-based async job execution in web UI with polling via `/api/jobs/{id}/status`
+- `ReconLogger` generates unique error codes (`CATEGORY-12345-ABCD`) for each error occurrence with full context capture
+- LLM calls use retry with exponential backoff (max 3 retries, retryable status codes 429/5xx)
+- Skeleton pipeline uses `JobProgress.errors` list to accumulate non-fatal errors while continuing
+- Translation layer wraps all API responses in JSON with consistent structure (`{error: "..."}` or `{success: true, ...}`)
+- Database operations use `db_transaction()` context manager with automatic rollback on exception
+- Null-safety: Many access patterns use `.get("key", default)` to handle missing keys gracefully
 
 ## Cross-Cutting Concerns
 
-**Logging:** `recon/utils/logger.py` — Singleton `ReconLogger` with structured JSON output, file rotation (10MB, 5 files), colorized console output, error code generation, thread safety
+**Logging:** Structured JSON logging via `ReconLogger` singleton — logs to both console (colored) and rotated files at `data/recon/logs/`. Error codes enable traceability across sessions.
 
-**Validation:** JSON Schema draft-07 in `schemas/` folder for all data entities (agent-brain, topic, hook, angle, script, etc.) with `additionalProperties: false` enforcement
+**Validation:** JSON Schema draft-07 schemas in `schemas/` define contracts for topics, analytics, hooks, scripts, and production orders. Not programmatically enforced at runtime — used as references.
 
-**Authentication:** Credentials via environment variables → `.env` file → `.credentials` file cascade. Claude commands never store keys in tracked files. OAuth tokens stored at `~/.viral-command/` for YouTube Analytics.
+**Authentication:** Instagram credentials via Instaloader login with session persistence. YouTube via Google OAuth (tokens stored per-channel). LLM API keys via environment variables.
 
-**Deduplication:** `recon/tracker.py` maintains `data/recon/tracker-state.json` — maps `{competitor_handle: {content_id: timestamp}}` with stale detection (24h default) and cleanup (30-day retention).
+**Configuration cascading:** OS env vars → `.env` file → `.credentials` file — each level overrides the previous.
 
 ---
 
-*Architecture analysis: 2026-07-09*
+*Architecture analysis: 2026-07-10*

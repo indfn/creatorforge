@@ -1,52 +1,45 @@
-# Code Conventions
+# Coding Conventions
 
-**Analysis Date:** 2026-07-09
+**Analysis Date:** 2026-07-10
 
-## Naming Conventions
+## Language & Runtime
 
-**Python files:** snake_case — e.g., `recon/config.py`, `scoring/engine.py`, `scripts/generate-pdf.py` (CONSISTENT across all modules)
+**Primary:** Python 3.10+ — all core logic in `agent_core/` and `production/`
+**Secondary:** Bash — automation scripts in `scripts/` (`.sh` files), Node.js — test helpers in `.agents/skills/` (`.mjs` files)
 
-**Classes:** PascalCase — e.g., `ReconLogger` (`recon/utils/logger.py:28`), `BatchedExtractor` (`recon/skeleton_ripper/extractor.py:35`), `SkeletonRipperPipeline` (`recon/skeleton_ripper/pipeline.py:102`), `StateManager` (`recon/utils/state_manager.py:24`), `Competitor` (`recon/config.py:21`), `LLMClient` (`recon/skeleton_ripper/llm_client.py:71`)
+## Naming Patterns
 
-**Functions/methods:** snake_case — e.g., `load_competitors()` (`recon/config.py:42`), `get_logger()` (`recon/utils/logger.py:192`), `calculate_delay()` (`recon/utils/retry.py:26`), `score_topic()` (`scoring/engine.py:255`)
+**Files:**
+- Python: `snake_case.py` — e.g., `bridge.py`, `brain_updater.py`, `tts_generation.py`
+- Bash: `kebab-case.sh` — e.g., `init-creatorforge.sh`, `refresh-ig-token.sh`
+- JSON Schema: `kebab-case.schema.json` — e.g., `channel-config.schema.json`, `agent-brain.schema.json`
+- Test files: `test_*.py` pattern — e.g., `test_score.py`, `test_cache.py`
 
-**Private functions:** Prefixed with underscore `_` — e.g., `_generate_topic_title()` (`recon/bridge.py:120`), `_tokenize()` (`scoring/engine.py:88`), `_extract_stems()` (`scoring/engine.py:111`), `_count_keyword_matches()` (`scoring/engine.py:93`)
+**Functions:**
+- Python: `snake_case` — e.g., `score_topic()`, `load_brain_pillars()`, `generate_topics_from_skeletons()`
+- Private/internal helpers prefixed with underscore: `_generate_topic_title()`, `_match_pillars()`, `_tokenize()`
+- Bash: `snake_case` in functions
 
-**Modules (packages):** snake_case package names — `recon/`, `scoring/`, `recon.utils/`, `recon.storage/`, `recon.skeleton_ripper/`, `recon.web/`
+**Classes:**
+- Python: `PascalCase` — e.g., `InstaClient`, `ReconLogger`, `StateManager`, `SkeletonRipperPipeline`, `BatchedExtractor`
+- Dataclasses: `PascalCase` — e.g., `Competitor`, `ReconConfig`, `JobConfig`, `JobProgress`, `JobResult`
+- Enums: `PascalCase` with `UPPER_CASE` values — e.g., `LogLevel.INFO`, `JobStatus.PENDING`, `JobPhase.SCRAPING`
 
-**Constants:** UPPER_CASE — e.g., `ACTION_KEYWORDS` (`scoring/engine.py:16`), `OPINION_KEYWORDS` (`scoring/engine.py:23`), `BRAIN_FILE` (`scoring/engine.py:13`), `PIPELINE_DIR` (`recon/config.py:13`), `DATA_DIR` (`recon/config.py:14`)
+**Variables:**
+- Python: `snake_case` — e.g., `brain_ctx`, `text_lower`, `error_code`
+- Constants: `UPPER_SNAKE_CASE` — e.g., `ACTION_KEYWORDS`, `OPINION_KEYWORDS`, `BRAIN_FILE`, `PIPELINE_DIR`
 
-**Dataclass fields:** snake_case — e.g., `llm_provider`, `whisper_model`, `max_attempts`, `initial_delay` (CONSISTENT across all `@dataclass` definitions)
-
-**Enum values:** UPPER_CASE — e.g., `LogLevel.DEBUG` (`recon/utils/logger.py:20`), `JobStatus.PENDING` (`recon/skeleton_ripper/pipeline.py:40`), `JobPhase.SCRAPING` (`recon/utils/state_manager.py:15`)
-
-**JSONL data files:** `{date}-topics.jsonl` pattern (`recon/bridge.py:204`), `scripts.jsonl`, `hooks.jsonl`, `angles.jsonl` — date-stamped for topics, simple name for others
-
-**JSON schema files:** `topic.schema.json`, `angle.schema.json`, `hook.schema.json`, `script.schema.json` — dot-delimited format in `schemas/`
-
-**Shell scripts:** kebab-case — e.g., `init-data.sh`, `run-recon-ui.sh`, `init-viral-command.sh`, `refresh-ig-token.sh`
+**Types:**
+- Modern Python 3.10+ style: `list[dict]`, `dict[str, float]`, `Optional[str]`, `str | None`
+- Legacy style also present: `Optional[Dict]`, `List[str]`, `Dict[str, Any]` in older files
 
 ## Code Style
 
-**Python (PEP 8):** All Python files follow PEP 8 conventions. Evidence across all modules:
-- 4-space indentation consistent
-- Two blank lines between top-level definitions
-- Single blank line between methods in a class
-- Imports grouped: stdlib → third-party → local (see `recon/bridge.py:8-19`)
-
-**Type hints used extensively:**
-
+**Docstrings:**
+- Module-level docstrings in every file (triple quotes `"""..."""`), describing the module's purpose
+- Function docstrings with `Args:`, `Returns:`, `Raises:` sections using Google-style format
+- Example from `agent_core/scoring/engine.py`:
 ```python
-# recon/config.py:9-10
-from typing import Optional, Dict, List
-
-@dataclass
-class ReconConfig:
-    competitors: List[Competitor]
-    ig_username: Optional[str] = None
-```
-```python
-# scoring/engine.py:255-261
 def score_topic(
     title: str,
     description: str,
@@ -54,204 +47,161 @@ def score_topic(
     timeliness: int = 6,
     is_competitor: bool = False,
 ) -> Dict:
-```
-
-**Function length:** Varies widely — helper functions are short (2-15 lines), orchestrator functions are longer (50-80 lines like `score_topic()` at 37 lines, `_scrape_and_transcribe()` at 131 lines)
-
-**Docstrings:** Module-level triple-quote docstrings on every file (`""" ... """`). Function-level docstrings on most public functions (one-line or multi-line). Private functions sometimes skip docstrings.
-
-**Returns:** Explicit `return` statements. Functions that return `None` do not always annotate the return type.
-
-**Error handling:** `try/except` with specific exception types, never bare `except:` — e.g., `except json.JSONDecodeError`, `except OSError`, `except requests.exceptions.HTTPError`
-
-**JSON serialization:** Pattern of `json.dumps(obj, ensure_ascii=False)` for JSONL writes (`recon/bridge.py:223`, `scoring/rescore.py:97`), `json.dump(obj, f, indent=2)` for human-readable JSON (`recon/scripts/generate-pdf.py` pattern)
-
-**Path handling:** `pathlib.Path` used throughout — `Path(__file__).parent` for relative path resolution (CONSISTENT across all Python files). Never `os.path.join` for path construction within packages.
-
-**Sys.path manipulation:** Pattern of `sys.path.insert(0, str(Path(__file__).parent.parent))` used in entry-point scripts (`recon/bridge.py:18`, `scoring/rescore.py:17`, `recon/web/app.py:19`)
-
-## File Organization
-
-**Package structure:** Each package has an `__init__.py` with module docstring + explicit `__all__` exports (e.g., `recon/__init__.py`, `recon/utils/__init__.py`, `recon/storage/__init__.py`, `scoring/__init__.py`, `recon/skeleton_ripper/__init__.py`)
-
-**Module grouping by domain:**
-- `recon/config.py` — Configuration loading (competitors, credentials)
-- `recon/bridge.py` — Skeleton-to-topic conversion bridge
-- `recon/tracker.py` — Duplicate content tracking state
-- `recon/utils/` — Cross-cutting utilities (logger, retry, state_manager)
-- `recon/storage/` — SQLite database (database.py, models.py)
-- `recon/skeleton_ripper/` — Multi-creator content analysis pipeline
-- `recon/web/` — Flask UI dashboard
-- `scoring/` — Topic scoring engine (ghost dependency, no external imports beyond stdlib+recon)
-- `skills/last30days/` — Independent skill module with its own lib/ layout
-- `scripts/` — CLI entry-point Python scripts
-
-**One class per file:** Most substantial classes get their own file (e.g., `ReconLogger` in `logger.py`, `LLMClient` in `llm_client.py`, `SkeletonRipperPipeline` in `pipeline.py`). Smaller dataclasses co-exist in a single file when related (e.g., `Asset`, `Collection`, `AssetCollection` in `models.py`).
-
-**Tests mirrored:** Tests in `skills/last30days/tests/` mirror the `scripts/lib/` structure — one test file per module (`test_score.py` → `score.py`, `test_dedupe.py` → `dedupe.py`, etc.)
-
-## Error Handling Patterns
-
-**Return vs. Exception:**
-- Helper functions that query existence return empty/falsy values: `return []`, `return {}` (`recon/config.py:45`, `scoring/engine.py:39-50`)
-- Pipeline operations raise exceptions with descriptive messages: `raise ValueError(f"Unknown provider: {provider}")` (`recon/skeleton_ripper/llm_client.py:77`), `raise RuntimeError("Instagram login failed...")` (`recon/skeleton_ripper/pipeline.py:221`)
-- CLI scripts use `sys.exit(1)` with print for user-facing errors (`scripts/generate-pdf.py:290`, `scoring/rescore.py:27`)
-
-**Structured logging in error handlers:**
-```python
-# recon/utils/retry.py:80-83
-logger.error(category, f"All {config.max_attempts} attempts failed", {
-    "function": fn.__name__,
-    "final_error": str(e)
-}, exception=e)
-```
-
-**Error code generation:** `ReconLogger.error()` and `.critical()` return unique error codes (`recon/utils/logger.py:64-67`):
-```python
-def _generate_error_code(self, category: str, message: str) -> str:
-    hash_part = hashlib.md5(f"{category}:{message}".encode()).hexdigest()[:4].upper()
-    return f"{category}-{timestamp_part:05d}-{hash_part}"
-```
-
-**Transaction rollback pattern for DB:**
-```python
-# recon/storage/database.py:93-104
-@contextmanager
-def db_transaction():
-    conn = get_db_connection()
-    try:
-        yield conn
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
-```
-
-**File existence checks before operations:** Every file read checks `.exists()` first (CONSISTENT pattern across all modules — `recon/config.py:44`, `recon/tracker.py:25`, `scoring/engine.py:39`, `recon/bridge.py:31`)
-
-## Documentation Patterns
-
-**Module docstrings:** Every `.py` file starts with a triple-quoted module docstring (`""" ... """`) describing purpose and usage patterns:
-```python
-# recon/bridge.py:1-5
-"""
-Recon Bridge — Converts skeleton ripper output into JSONL topics
-matching schemas/topic.schema.json for the content-pipeline discovery system.
-
-This is the key integration point: competitor analysis → scored topics.
-"""
-```
-
-**Function docstrings:** One-line summary for simple functions, multi-line with Args/Returns for complex ones:
-```python
-# scoring/engine.py:29-38
-def load_brain_context() -> Dict:
     """
-    Read agent-brain.json and return structured context for scoring.
-    Returns dict with:
-        icp_keywords: flattened list from icp.pain_points + goals + segments
-        ...
+    Orchestrator: score a topic against the agent brain.
+
+    Args:
+        title: Topic title
+        description: Topic description
+        views: View count (for competitor bonus calculation)
+        timeliness: Timeliness score (1-10), provided by caller
+        is_competitor: Whether this is from competitor analysis
+
+    Returns:
+        Scoring dict matching topic.schema.json scoring object:
+        {icp_relevance, timeliness, content_gap, proof_potential, total, weighted_total}
     """
 ```
 
-**"Ported from" annotations:** Modules ported from ReelRecon include a second-line note in the docstring: `recon/utils/logger.py:3`, `recon/utils/retry.py:2`, `recon/storage/database.py:3`
+**Linting:**
+- No linter config files detected (no `.eslintrc`, `.pylintrc`, `pyproject.toml`, `setup.cfg`)
+- `CONTRIBUTING.md` references PEP 8 but no automated linting is configured
+- `production/RenderEngine/linter.py` is a domain-specific render validator, not a code linter
 
-**Inline comments:** Used sparingly for non-obvious logic — section markers like `# =============================================================================` in `recon/web/app.py:56` and `recon/utils/logger.py` for route categories
+**Formatting:**
+- No formatter config detected (no `.prettierrc`, `pyproject.toml` with black/isort config)
+- Indentation: 4 spaces for Python (PEP 8 default)
+- Maximum line length: not strictly enforced (~80 chars observed, with some lines up to ~100)
 
-**Data schemas:** JSON Schema draft-07 files in `schemas/` with `description` fields on all properties (`schemas/topic.schema.json`, `schemas/hook.schema.json`, etc.)
+## Import Organization
 
-**Markdown command files:** Claude Code commands in `.claude/commands/viral-*.md` follow a structured phase-based format with Rules, Validation, and Persistence sections per CONTRIBUTING.md
-
-**Structured CLI argument parsing:** `argparse` with `description` on every script — `scripts/generate-pdf.py:259`, `scoring/rescore.py:3-7`
-
-## Logging / Observability
-
-**Singleton custom logger:** `ReconLogger` singleton via `_instance` + `threading.Lock()` (`recon/utils/logger.py:31-38`)
-
-**Global accessor:**
+**Python (stdlib first, then third-party, then local):**
 ```python
-# recon/utils/logger.py:192-196
-def get_logger() -> ReconLogger:
-    global _logger
-    if _logger is None:
-        _logger = ReconLogger()
-    return _logger
+import json
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import List, Dict, Optional
+
+import instaloader
+import requests
+
+from agent_core.recon.config import load_competitors, BRAIN_FILE
+from agent_core.recon.utils.logger import get_logger
 ```
 
-**Log levels:** DEBUG, INFO, WARNING, ERROR, CRITICAL (enum with numeric values, `recon/utils/logger.py:20-25`)
+**Observed ordering rules:**
+1. Standard library imports
+2. Third-party imports (separated by blank line)
+3. Local/package imports (separated by blank line)
+4. Within each group: alphabetical ordering is common but not strict
 
-**Dual output:**
-- Console: Color-coded by level (`\033[90m` DEBUG, `\033[91m` ERROR, etc.) (`recon/utils/logger.py:108-121`)
-- File: JSON-structured entries written to `data/recon/logs/recon.log` with timestamp, level, category, message, optional data/error_code
-
-**Structured log format (JSONL):**
-```json
-{"timestamp": "2026-07-09 12:00:00.000", "level": "ERROR", "category": "EXTRACT", "message": "Batch extraction error", "error_code": "EXTRACT-12345-ABCD"}
+**Path resolution pattern** (used in scripts and entry points):
+```python
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from agent_core.scoring.engine import score_topic
 ```
 
-**Error registry:** In-memory error code registry with `get_error_details()`, `get_recent_errors()` — useful for linking error codes to full context (`recon/utils/logger.py:56,179-185`)
+## Error Handling
 
-**Logging in practice:**
+**Patterns:**
+- Explicit exception handling with `try/except`, never bare `except:`
+- Custom structured logging with error codes via `ReconLogger.error()` and `.critical()` methods
+- Retry with exponential backoff via `retry_with_backoff` decorator in `agent_core/recon/utils/retry.py`
+- Error codes generated as: `"{category}-{timestamp:05d}-{hash_part}"` (e.g., `INSTA-84321-A3F2`)
+- Stub functions raise `NotImplementedError("descriptive message")` for planned-but-unimplemented code
+
+**Retry pattern** (from `agent_core/recon/utils/retry.py`):
 ```python
-logger.info("BRIDGE", f"Generated {len(topics)} topics from {len(skeletons)} skeletons")  # recon/bridge.py:188
-logger.error("UI", f"Push to discover failed", exception=e)  # recon/web/app.py:323
-logger.warning("LLM", f"HTTP {status_code}, retrying in {delay:.1f}s")  # recon/skeleton_ripper/llm_client.py:113
-```
-
-**Module-level logger instantiation:** Every module creates its own logger at module level via `logger = get_logger()` — e.g., `recon/bridge.py:21`, `recon/utils/retry.py` (imports inside functions), `recon/skeleton_ripper/llm_client.py:15`
-
-**File rotation:** `_rotate_if_needed()` — rotates at 10MB, keeps 5 files (`recon/utils/logger.py:49, 69-84`)
-
-## Patterns & Idioms
-
-**Dataclass-as-config:** Configuration objects defined as `@dataclass` with type-annotated fields and defaults:
-- `RetryConfig` (`recon/utils/retry.py:14-23`)
-- `ReconConfig` (`recon/config.py:29-39`)
-- `JobConfig` / `JobProgress` / `JobResult` (`recon/skeleton_ripper/pipeline.py:51-99`)
-- `Asset` / `Collection` (`recon/storage/models.py:14-25`)
-- `Competitor` / `ModelInfo` / `ProviderConfig` (`recon/config.py:20-27`, `recon/skeleton_ripper/llm_client.py:18-31`)
-
-**Enum-for-state-machine pattern:** Job states as Enum classes — `LogLevel` (`recon/utils/logger.py:20`), `JobPhase` (`recon/utils/state_manager.py:14`), `JobStatus` (`recon/skeleton_ripper/pipeline.py:40`)
-
-**Decorator-based retry:** `retry_with_backoff` as a decorator with configurable params, plus pre-configured `network_retry` and `api_retry` partials (`recon/utils/retry.py:36-109`):
-```python
-@network_retry()
+@retry_with_backoff(max_attempts=3, initial_delay=1.0, retryable_exceptions=(ConnectionError, TimeoutError, OSError))
 def some_network_call():
     ...
 ```
 
-**Factory/creator functions at module level:**
-- `create_job_config()` (`recon/skeleton_ripper/pipeline.py:404`)
-- `run_skeleton_ripper()` (convenience wrapper, `recon/skeleton_ripper/pipeline.py:418`)
-- `get_logger()` (singleton accessor, `recon/utils/logger.py:192`)
-
-**singleton pattern:** `ReconLogger` uses double-checked locking singleton pattern (`recon/utils/logger.py:31-38`)
-
-**sys.path patching for cross-package imports:** Entry-point scripts insert project root, enabling clean `from scoring.engine import score_topic` without package installation — used in `recon/bridge.py:18`, `scoring/rescore.py:17`, `recon/web/app.py:19`
-
-**Path resolution pattern:** `Path(__file__).parent.parent.parent` pattern for navigating from deep modules to project root — e.g., `recon/utils/logger.py:46`, `recon/storage/database.py:10`, `recon/skeleton_ripper/pipeline.py:37`
-
-**Callbacks for progress reporting:** `SkeletonRipperPipeline.run()` accepts optional `on_progress: Optional[Callable]` and passes via `_notify()` helper (`recon/skeleton_ripper/pipeline.py:116, 359-364`)
-
-**Batch processing with binary search retry:** `BatchedExtractor._handle_parse_failure` splits failed batches in half recursively on parse error (`recon/skeleton_ripper/extractor.py:102-118`)
-
-**JSONL append pattern:** Topic data saved as JSONL with duplicate ID checking — read existing IDs, write new ones (`recon/bridge.py:192-227`)
-
-**Context manager for DB transactions:** `db_transaction()` context manager wrapping commit/rollback pattern (`recon/storage/database.py:93-104`)
-
-**Class method factory pattern with `@classmethod`:**
+**Pre-configured retry decorators:**
 ```python
-# recon/storage/models.py:27-43
-@classmethod
-def create(cls, type: str, title: str, ...) -> 'Asset':
-    asset = cls(...)
-    with db_transaction() as conn:
-        conn.execute(...)
-    return asset
+network_retry = functools.partial(retry_with_backoff, max_attempts=3, initial_delay=1.0, ...)
+api_retry = functools.partial(retry_with_backoff, max_attempts=3, initial_delay=2.0, max_delay=60.0, ...)
 ```
+
+## Logging
+
+**Framework:** Custom `ReconLogger` singleton (thread-safe) with file rotation and structured JSON output
+
+**Pattern:**
+- Module-level logger: `logger = get_logger()`
+- Log with category: `logger.info("BRIDGE", f"Generated {len(topics)} topics")`
+- Methods: `.debug()`, `.info()`, `.warning()`, `.error()`, `.critical()`
+- `.error()` and `.critical()` accept `exception=e` for traceback capture and return an error code
+- Categories are uppercase short strings: `"INSTA"`, `"YOUTUBE"`, `"TRANSCRIBE"`, `"BRIDGE"`, `"PIPELINE"`
+
+**Console output format:** `[CATEGORY] message` or `[ERROR_CODE] message`
+**File output format:** JSONL — `{"timestamp": "...", "level": "INFO", "category": "BRIDGE", "message": "...", "data": {...}}`
+
+## Comments
+
+**When to Comment:**
+- Module-level docstrings explain what the module does and how to use it
+- Complex logic (scoring tiers, fallback chains) gets inline comments
+- "Ported from ReelRecon" annotations used where code was migrated from an older project
+- Not over-commented: straightforward operations are self-documenting
+
+**Comment style:**
+- `#` inline comments with space after `#`
+- Section separators in larger files: `# ====== SECTION NAME ======`
+
+## Function Design
+
+**Size:**
+- Most functions are 10-60 lines
+- Pipeline orchestration functions can be larger (100-200 lines) — `SkeletonRipperPipeline.run()` is the largest at ~80 lines
+- Pure helper functions stay under 20 lines
+
+**Parameters:**
+- Named parameters with type hints
+- Default values provided for optional params: `def score_topic(title: str, description: str, views: int = 0)`
+- Keyword-only after `*` in some cases: `def retry_with_backoff(func=None, *, max_attempts=3, ...)`
+- Dataclasses used for complex parameter groups (`@dataclass` classes like `JobConfig`, `ReconConfig`)
+
+**Return Values:**
+- Typed return values on all functions
+- `Optional[str]` / `str | None` for nullable returns
+- Dicts returned with matching JSON Schema shapes where applicable
+- Functions that can fail return `None` or empty sentinel values
+
+## Module Design
+
+**Exports:**
+- Most modules use `__all__` in `__init__.py` for explicit export control
+- Selective imports from submodules (e.g., `from .pipeline import SkeletonRipperPipeline, create_job_config`)
+
+**Barrel Files:**
+- Every package has `__init__.py` with a module docstring and re-exports
+- `__init__.py` files provide usage examples in their docstrings
+- Sub-packages like `agent_core/recon/storage/__init__.py` re-export key classes
+
+## Data Handling
+
+**File I/O:**
+- `pathlib.Path` used consistently (no `os.path.join()` in modern code)
+- JSON: `json.dump(data, f, indent=2, ensure_ascii=False)` for writing
+- JSONL: lines appended with `json.dumps(obj, ensure_ascii=False) + "\n"`
+- File encoding: `encoding='utf-8'` on all file opens (both `'r'` and `'w'` modes)
+- `with open(...)` context manager always used
+
+**Configuration:**
+- Dataclasses for typed config: `ReconConfig`, `JobConfig`, `RetryConfig`
+- Env var loading via `python-dotenv` (.env file) with custom `.env` parser in `config.py`
+- Credential priority: env vars > `.env` file > `.credentials` file
+- Config merging pattern with fallback chains in `load_config()`
+
+## Testing Conventions
+
+**Test location:** Separate directories (`tests/`), co-located with skill/component, not alongside source
+**Test framework:** Python uses `unittest` (stdlib), JavaScript uses `node:test` + `node:assert`
+
+See `TESTING.md` for detailed testing patterns.
 
 ---
 
-*Convention analysis: 2026-07-09*
+*Convention analysis: 2026-07-10*

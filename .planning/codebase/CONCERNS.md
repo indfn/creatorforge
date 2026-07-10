@@ -1,249 +1,288 @@
-# Concerns & Improvement Areas
+# Codebase Concerns
 
-**Analysis Date:** 2026-07-09
+**Analysis Date:** 2026-07-10
 
-## Security
+## Tech Debt
 
-### Hardcoded `.env` files read directly by scripts (high)
-- **Location:** `scripts/fetch-ig-insights.py` (lines 42-48), `scripts/fetch-yt-analytics.py` (lines 42-48), `scripts/setup-ig-token.py` (lines 45-51)
-- **Issue:** These scripts implement a custom `load_env()` function that reads `.env` line-by-line and sets environment variables via `os.environ.setdefault()`. If `.env` is accidentally committed to version control (it is in `.gitignore`, but a user might force-add it), all API keys, app secrets, and OAuth credentials are exposed. Python's `python-dotenv` is listed in `requirements.txt` but the scripts bypass it, leading to inconsistent env loading patterns.
-- **Recommendation:** Use `python-dotenv` consistently across all scripts, or implement a single shared `load_env()` in a central utility module.
+### Stub Implementation Gap — Entire Publishing, Analytics, and Production Modules
 
-### Credentials stored in plaintext `.credentials` file (medium)
-- **Location:** `recon/config.py` (lines 16, 63-102)
-- **Issue:** The recon module saves credentials (IG username, IG password, OpenAI API key, Anthropic API key, Google API key) to `data/recon/.credentials` as plaintext key=value pairs. A warning comment says "DO NOT COMMIT" but the file exists under `data/recon/` which is gitignored only indirectly via `data/recon/`. If gitignore rules are wrong, this file could leak. Additionally, any process with filesystem access to the data directory can read plaintext API keys.
-- **Recommendation:** Store credentials in the OS keychain (keyring library) or encrypt the `.credentials` file with a derived key.
+- **Issue:** 15+ public functions across four modules are unimplemented stubs raising `NotImplementedError`. These represent the entire publishing pipeline and analytics feedback loop.
+- **Files:**
+  - `agent_core/publishing/uploader.py` — `upload_video()` (line 16)
+  - `agent_core/publishing/oauth.py` — `get_authenticated_service()` (line 10), `refresh_token_if_expired()` (line 22)
+  - `agent_core/publishing/scheduler.py` — `best_time()` (line 10), `schedule_for_peak()` (line 22)
+  - `agent_core/publishing/metadata.py` — `generate_title()` (line 7), `generate_description()` (line 20), `generate_tags()` (line 33)
+  - `agent_core/analytics/collector.py` — `collect_recent()` (line 7), `collect_for_video()` (line 20)
+  - `agent_core/analytics/insights.py` — `aggregate_all()` (line 8), `aggregate_channel()` (line 17)
+  - `agent_core/analytics/brain_updater.py` — `update_brain()` (line 8), `update_weights()` (line 20)
+  - `production/VisualGeneration/asset_scraper.py` — `fetch_broll()` (line 7), `fetch_image()` (line 21)
+  - `production/VisualGeneration/sfx_scraper.py` — `fetch_sfx()` (line 7)
+  - `production/VisualGeneration/fallback_cli.py` — `generate_bar_chart()` (line 8), `generate_text_slide()` (line 22)
+  - `production/AudioGeneration/force_align.py` — `align()` (line 10)
+- **Impact:** The entire video upload, scheduling, SEO metadata generation, analytics collection, brain evolution loop, visual asset generation, and force alignment systems are non-functional. This constitutes ~70% of the intended feature surface.
+- **Fix approach:** Implement each stub incrementally. Prioritize OAuth + uploader first (core path), then analytics collector, then the rest.
 
-### Flask app runs in debug mode with host 0.0.0.0 (medium)
-- **Location:** `recon/web/app.py` (line 378)
-- **Issue:** `app.run(host='0.0.0.0', port=5001, debug=True)`. The Flask debug mode exposes a web-based debugger console that can execute arbitrary Python code. Binding to `0.0.0.0` makes this accessible from any network interface. If this is running in a shared or cloud environment, it's a remote code execution vector.
-- **Recommendation:** Remove `debug=True` in production. Bind only to `127.0.0.1` or make binding configurable via env var. Use a proper WSGI server (gunicorn/uvicorn) for production.
+### `app.test_request_context()` Used in Production Route Handler
 
-### API keys passed as command-line parameters in shell scripts (medium)
-- **Location:** `scripts/refresh-ig-token.sh` (line 42)
-- **Issue:** The Instagram token refresh script passes `$CURRENT_TOKEN` directly as a URL query parameter via `curl`. This exposes the token in process listings (`ps aux`), shell history (though careful with `set -o history`), and debug output. The `-s` flag supresses progress but the URL (including token) is logged in `logs/ig-token-refresh.log`.
-- **Recommendation:** Use `curl -sS -o /dev/null` to suppress output. Mask the token in log entries. Consider using the Graph API client SDK instead of raw curl.
+- **Issue:** `agent_core/recon/web/app.py` line 211 uses Flask's test request context (`app.test_request_context()`) inside the production `api_scrape_all()` route handler to invoke another route internally. This is a misuse of test infrastructure that creates hidden request context dependencies.
+- **Files:** `agent_core/recon/web/app.py` (lines 211-221)
+- **Impact:** Fragile internal dispatch — if `api_scrape_competitor` changes its request parsing behavior, `api_scrape_all` silently breaks. Also creates confusing context stack behavior.
+- **Fix approach:** Extract the shared logic into a private helper function (`_scrape_competitor(handle, max_reels)`), call it directly from both routes instead of routing through Flask's WSGI context.
 
-### `client_secret.json` gitignored but referenced in code (low)
-- **Location:** `scripts/setup-yt-oauth.py` (lines 33, 51), `.gitignore` (line 56)
-- **Issue:** Google OAuth `client_secret.json` is correctly gitignored, but if a developer accidentally places it in the wrong location or renames it, the script will fail with a potentially confusing error. No validation message warns about the file location.
-- **Recommendation:** Add a startup validation check with clear instructions.
+### Sys.path Manipulation in Multiple Modules
 
-## Technical Debt
+- **Issue:** Three files inject project root into `sys.path` at import time using `sys.path.insert(0, ...)`. This is fragile, bypasses proper Python packaging, and makes imports dependent on execution context.
+- **Files:**
+  - `agent_core/recon/bridge.py` (line 18)
+  - `agent_core/recon/web/app.py` (line 19)
+  - `agent_core/scoring/rescore.py` (line 17)
+- **Impact:** Import resolution depends on how the script is invoked. Running `python3 path/to/file.py` from different directories produces different import behavior. Broke standard tooling (pylint, mypy, pytest).
+- **Fix approach:** Install the project as a pip-installable package with `setup.py`/`pyproject.toml` and use `PYTHONPATH` consistently.
 
-### `sys.path.insert(0, ...)` pattern used inconsistently across the project (high)
-- **Location:** `recon/web/app.py` (line 19), `recon/bridge.py` (line 18), `scoring/rescore.py` (line 17), and 8 test files in `skills/last30days/tests/`
-- **Issue:** Multiple files manipulate `sys.path` at import time to resolve module imports. This is fragile — if the working directory changes or the project structure is refactored (e.g., adding a `src/` layout), imports will silently break. Each occurrence uses a slightly different path calculation, making debugging difficult. This creates an implicit dependency on how the file is invoked (as a script vs. as a module).
-- **Estimated effort:** Medium (standardize on relative imports or a proper `setup.py`/`pyproject.toml` install)
+### Unused `weights` Parameter Passed Through
 
-### Credential file parsing with no input validation (medium)
-- **Location:** `recon/config.py` (lines 72-77)
-- **Issue:** The `.credentials` file parser splits on `=` and strips whitespace. If a credential value contains an `=` sign (which is valid in some API keys), the parsing will unexpectedly truncate the value. There is no error if the file is malformed.
-- **Estimated effort:** Small (use `partition('=')` instead of `split('=', 1)`, which is already used in scripts — inconsistency across the codebase)
+- **Issue:** `agent_core/recon/bridge.py` function `skeleton_to_topic()` accepts a `weights` parameter (line 55) but never uses it — only `pillars` is used. The parameter is threaded through `generate_topics_from_skeletons()` unnecessarily.
+- **Files:** `agent_core/recon/bridge.py` (lines 55, 174)
+- **Impact:** Misleading API surface. Future developers may think weights are applied in bridge when they're only used by the scoring engine internally.
+- **Fix approach:** Remove the unused `weights` parameter from `skeleton_to_topic()` and `generate_topics_from_skeletons()`.
 
-### `app.secret_key` generated randomly on every restart (medium)
-- **Location:** `recon/web/app.py` (line 47)
-- **Issue:** `app.secret_key = os.urandom(24)` generates a new secret key every time the Flask app starts. This means Flask session cookies signed with the old key will be invalidated on restart. For a local-only UI this is minor, but it indicates sessions don't survive app restarts.
-- **Estimated effort:** Small (load a persistent key from a file or env var)
+### Legacy `transcribe_video_openai` Wrapper
 
-### Scattering of `pass` in exception handlers (low)
-- **Locations:** `recon/web/app.py` (line 114), `recon/skeleton_ripper/llm_client.py` (line 196), `recon/skeleton_ripper/extractor.py` (line 141), `recon/utils/state_manager.py` (line 56), `recon/bridge.py` (line 217)
-- **Issue:** Several exception handlers silently swallow exceptions with `pass`, making failures invisible to the operator. For example, in `recon/skeleton_ripper/llm_client.py`, the Ollama health check failure is silently ignored; in `recon/web/app.py`, JSON parsing errors while loading competitor data are silently swallowed.
-- **Estimated effort:** Small (log each exception before suppressing)
+- **Issue:** `agent_core/recon/scraper/downloader.py` line 122 defines `transcribe_video_openai()` as a thin legacy wrapper around `transcribe_video()` with no additional logic. It exists only for backward compatibility but has no callers.
+- **Files:** `agent_core/recon/scraper/downloader.py` (lines 122-124)
+- **Impact:** Dead code that creates confusion about which transcription function to use.
+- **Fix approach:** Remove the wrapper, update any hypothetical import references.
 
-### Copy-pasted port from ReelRecon with "adjusted" comments everywhere (low)
-- **Locations:** `recon/scraper/downloader.py` (header), `recon/skeleton_ripper/*.py` (headers), `recon/storage/*.py` (headers), `recon/utils/logger.py` (header), `recon/utils/state_manager.py` (header), `recon/web/app.py` (header)
-- **Issue:** Over a dozen files have headers stating "Ported from ReelRecon" with path adjustments. While functional, this indicates significant code reuse without a clear migration strategy. The "unchanged" and "adjusted" comments suggest some code may still have stale ReelRecon references or assumptions.
-- **Estimated effort:** Medium (review each ported file for stale references, deduplicate into proper shared modules)
+### Comment-Out-Based Optional Dependencies
 
-## Performance
-
-### Instagram scraper fetches every post before filtering (high impact)
-- **Location:** `recon/scraper/instagram.py` (lines 143-170)
-- **Issue:** `profile.get_posts()` iterates through ALL profile posts (including photos, carousels, etc.) to find video/reels. For large accounts with 1000+ posts, this means iterating through all of them even though `max_reels` is usually 50. There is a rate-limiting sleep every 12 items, so scraping a large account is extremely slow. For accounts with mostly photo content, this could waste significant time.
-- **Impact:** Slow Instagram scraping for large accounts with low reel density
-- **Improvement:** Use Instaloader's `get_posts()` with a target type filter, or check `is_video` earlier in the iteration and break early if the count is met.
-
-### YouTube yt-dlp scraping uses flat playlist but still sequential (medium impact)
-- **Location:** `recon/scraper/youtube.py` (lines 56-68)
-- **Issue:** Each video fetch runs `yt-dlp` as a subprocess sequentially. For multiple competitors, this becomes serial: fetch channel A, parse output, then fetch channel B, etc. No parallel fetching is used.
-- **Impact:** Slow when scanning many competitors (each channel takes 3-10 seconds)
-- **Improvement:** Use `concurrent.futures.ThreadPoolExecutor` to fetch multiple channels in parallel.
-
-### yt-dlp audio download always downloads full audio for transcription (medium impact)
-- **Location:** `recon/scraper/youtube.py` (lines 138-149)
-- **Issue:** Video downloads always grab audio in best available quality (`bestaudio[ext=m4a]/bestaudio/best`). For transcription purposes, a lower quality audio (64kbps) is more than sufficient and would be much faster to download.
-- **Impact:** Unnecessarily large downloads for transcription-only workloads
-- **Improvement:** Add a quality parameter for transcription-only downloads (e.g., `worstaudio` or format with bitrate limit).
-
-### `recon/config.py` reads `agent-brain.json` on every call to `load_config()` (low impact)
-- **Location:** `recon/config.py` (lines 105-119)
-- **Issue:** `load_config()` calls `load_competitors()` which reads and deserializes `agent-brain.json` from disk. Every API endpoint that calls `load_config()` (like `/api/competitors/scrape`, `/api/competitors`) incurs a disk read + JSON parse. `load_brain_pillars()` and `load_brain_learning_weights()` in `bridge.py` also re-read the same file independently.
-- **Impact:** Small, but cumulative under load
-- **Improvement:** Cache `agent-brain.json` in memory with a freshness TTL.
-
-### Duplicate `for line in ENV_PATH.read_text().splitlines()` in three scripts (low)
-- **Locations:** `scripts/fetch-ig-insights.py:43`, `scripts/fetch-yt-analytics.py:44`, `scripts/setup-ig-token.py:46`
-- **Issue:** Three scripts independently implement identical `.env` parsing logic. This is both a maintenance burden and a performance concern (each reimplements the same function).
-- **Impact:** Negligible performance impact, increased maintenance surface
-- **Improvement:** Extract to a shared utility module.
-
-## Maintainability
-
-### No test coverage for core `recon` module (high)
-- **Location:** Entire `recon/` directory
-- **Issue:** The `recon/` module (config, bridge, scraper, skeleton_ripper, storage, utils, web) has zero tests. The only tests in the project exist under `skills/last30days/tests/` which test a different subsystem. The skeleton ripper pipeline (`recon/skeleton_ripper/pipeline.py`, 431 lines) has no unit tests despite its complexity — multiple stages (scrape, transcribe, extract, aggregate, synthesize) with complex error handling and async progress tracking.
-- **Why it's hard to maintain:** Changes to the pipeline cannot be validated without running the full flow against real APIs. Refactoring is risky.
-- **Priority:** High
-
-### No standalone test runner configuration (high)
-- **Location:** Project root
-- **Issue:** There is no `pytest.ini`, `setup.cfg`, or `pyproject.toml` with test configuration. Tests exist only under `skills/last30days/tests/`. Running them requires manually setting `PYTHONPATH` and knowing the test directory structure.
-- **Why it's hard to maintain:** New developers have no standard way to run tests. CI cannot be configured without discovering the test structure.
-
-### Import path manipulation creates hidden module coupling (high)
-- **Locations:** `bridge.py`, `app.py`, `rescore.py`, many `skills/last30days/` files
-- **Issue:** The pervasive `sys.path.insert(0, ...)` pattern means module dependencies are resolved at import time based on filesystem layout rather than explicit dependency declarations. Moving a file will break imports silently. The `recon/bridge.py` both imports from `recon.config` (correctly via package) AND uses `sys.path.insert` to import from `scoring.engine` (incorrectly via path hack).
-- **Why it's hard to maintain:** Any refactoring (e.g., moving to `src/` layout, renaming packages) requires fixing every `sys.path` insertion point.
-
-### Missing type annotations in multiple files (medium)
-- **Locations:** `recon/scraper/youtube.py`, `recon/scraper/downloader.py`, `recon/bridge.py` (partial), `recon/skeleton_ripper/cache.py` (partial), `recon/utils/state_manager.py`
-- **Issue:** Many functions lack return type annotations or use `Optional` inconsistently. For example, `recon/scraper/youtube.py` function `save_channel_data` has no return type; `recon/scraper/downloader.py` functions are inconsistently annotated.
-- **Why it's hard to maintain:** Refactoring tools cannot detect type errors. New contributors can't infer parameter types from signatures.
-
-### Dead code: `format_aggregation_summary()` function not referenced (low)
-- **Location:** `recon/skeleton_ripper/aggregator.py` (lines 106-117)
-- **Issue:** The `format_aggregation_summary()` function is defined but never imported or called anywhere in the codebase. It appears to be leftover from the ReelRecon port.
-- **Why it's hard to maintain:** Unused code creates confusion about what's actually used.
-
-### Dead code: `schemas/` directory populated but no schema validation performed (low)
-- **Locations:** `schemas/agent-brain.schema.json`, `schemas/topic.schema.json`, `schemas/script.schema.json`, `schemas/angle.schema.json`, `schemas/hook.schema.json`, `schemas/insight.schema.json`, `schemas/analytics-entry.schema.json`, `schemas/competitor-reel.schema.json`, `schemas/swipe-hook.schema.json`
-- **Issue:** Nine JSON Schema files exist in `schemas/` but no code in the project actually validates any data against these schemas. Comments in `bridge.py` and `__init__.py` files reference schema matching but no validation runtime exists.
-- **Why it's hard to maintain:** Schemas and actual data formats can drift silently.
-
-### Broad `except Exception` handlers in critical paths (medium)
-- **Locations:** `recon/skeleton_ripper/pipeline.py` (lines 190, 348, 363), `recon/utils/state_manager.py` (line 55), `recon/storage/database.py` (line 100), `recon/web/app.py` (line 113), `recon/skeleton_ripper/llm_client.py` (line 125)
-- **Issue:** Several places catch `Exception` broadly with generic handling (log + re-raise, log + ignore, or `pass`). In `pipeline.py` line 190, the entire pipeline failure is caught as a generic `Exception`, losing specific error types. In `state_manager.py` line 55, JSON parsing errors during listing are silently ignored.
-- **Why it's hard to maintain:** Specific exception types should be handled differently. Broad catches can mask programming errors.
-
-### The `tracker.py` state file grows unboundedly (medium)
-- **Location:** `recon/tracker.py` (lines 119-141)
-- **Issue:** The `cleanup_old_entries()` function exists but is never called automatically. The tracker state file (`data/recon/tracker-state.json`) will grow indefinitely as new content is tracked, potentially reaching thousands of entries over time. A 30-day cleanup TTL is defined but never invoked.
-- **Why it's hard to maintain:** The state file will eventually become large and slow to load/parse.
-
-## Gaps / Missing Features
-
-### No CI/CD pipeline or automated testing (high)
-- **What's missing:** No CI configuration file (`.github/workflows/`, `.gitlab-ci.yml`, etc.). No test runner configuration (`pytest.ini`, `setup.cfg`). No linting configuration (`flake8`, `pylint`, etc.).
-- **Why it matters:** Code quality cannot be automatically checked. Breaking changes can be committed without detection. New contributors have no guidance on code quality standards.
-
-### No input validation on the Flask API endpoints (medium)
-- **Location:** `recon/web/app.py` (lines 130, 240, 345)
-- **Gap:** The `/api/competitors/<handle>/scrape` endpoint takes a `max_reels` from JSON body but does not validate it (could be negative, huge). The `/api/recon/analyze` endpoint accepts `usernames`, `videos_per_creator`, `llm_provider`, `llm_model` without validation against known providers/models. The settings endpoint saves arbitrary credential fields without encryption.
-- **Why it matters:** Invalid/malicious input could cause unexpected behavior or crash the pipeline.
-
-### YouTube handle normalization is fragile (medium)
-- **Location:** `recon/scraper/youtube.py` (lines 43-48)
-- **Gap:** The channel URL construction logic assumes handles start with `@`, fallback to raw, then fallback to `@<handle>/videos`. YouTube handles can have many formats (channel IDs, custom URLs, `/c/` paths). There's no validation that the constructed URL is valid before passing to yt-dlp.
-- **Why it matters:** Invalid URLs cause yt-dlp to fail with potentially confusing errors.
-
-### Missing token expiry monitoring for Instagram (medium)
-- **Gap:** The Instagram token is only refreshed when `refresh-ig-token.sh` is manually run. There is no automated check or monitoring. The `setup-ig-token.py` notes the token expires in ~60 days but no code warns or auto-refreshes.
-- **Why it matters:** Scraping will silently fail mid-job with expired tokens, requiring manual re-setup.
-
-### YouTube Analytics CTR is a documented dead end in code (medium)
-- **Location:** `scripts/fetch-yt-analytics.py` (lines 181-212, 267-268)
-- **Gap:** The `fetch_ctr()` function explicitly states "YouTube Analytics API does NOT expose thumbnail impression CTR" and the metric is returned as `None` with a note. This is a known feature limitation called out in code comments.
-- **Why it matters:** Users expecting full YouTube analytics will find CTR missing with no alternative path.
-
-### No graceful handling for missing `data/agent-brain.json` (medium)
-- **Locations:** `scoring/engine.py` (lines 39-50), `recon/config.py` (lines 44-48)
-- **Gap:** Both modules handle missing `agent-brain.json` by returning empty/fallback data. However, the system is designed around the agent brain being populated. An empty brain returns ICP scores of 3 (lowest tier) silently with no warning to the user.
-- **Why it matters:** Users who skip onboarding will get meaningless scoring with no indication why.
-
-### No pagination or cleanup for the UI's `active_jobs` dictionary (medium)
-- **Location:** `recon/web/app.py` (line 53)
-- **Gap:** `active_jobs = {}` is an in-memory dict that grows unboundedly. Completed and errored jobs are never removed. Over time (or with concurrent usage), this will consume increasing memory.
-- **Why it matters:** Memory leak in long-running UI sessions.
-
-### Missing error handling for yt-dlp format selection failure (low)
-- **Location:** `recon/scraper/youtube.py` (line 143, format string)
-- **Gap:** The download format `bestaudio[ext=m4a]/bestaudio/best` may fail if no audio track exists (rare but possible). There's no fallback format.
-
-## Redundancy / Duplication
-
-### Three implementations of `.env` file parsing
-- **Locations:** `scripts/fetch-ig-insights.py` (lines 40-48), `scripts/fetch-yt-analytics.py` (lines 40-48), `scripts/setup-ig-token.py` (lines 45-51)
-- **Details:** All three implement the exact same `load_env()` logic (read `.env`, split lines by `=`, skip comments, call `os.environ.setdefault`). The `setup-ig-token.py` variant also duplicates the `update_env()` function for writing back to `.env`.
-
-### Inconsistent path calculation for data directories
-- **Locations:** `recon/config.py` (line 13: `Path(__file__).parent.parent`), `recon/bridge.py` (line 23: `Path(__file__).parent.parent`), `recon/tracker.py` (line 13: `Path(__file__).parent.parent`), `recon/web/app.py` (lines 36-38: `BASE_DIR.parent.parent`), `recon/scraper/instagram.py` (line 25: `.parent.parent.parent`), `recon/scraper/youtube.py` (line 23: `.parent.parent.parent`), etc.
-- **Details:** Every module independently recalculates the project root path using different numbers of `.parent` calls. If the directory structure changes (e.g., adding a `src/` wrapper), every one of these must be updated individually.
-
-### Repeated view-count sorting logic
-- **Locations:** `recon/scraper/instagram.py` (lines 173-174), `recon/scraper/youtube.py` (lines 98-99), `recon/skeleton_ripper/pipeline.py` (does not sort — inconsistency)
-- **Details:** Both Instagram and YouTube scrapers implement identical `sort(key=lambda x: x.get("views", 0), reverse=True)` but the Instagram scraper normalizes `views` field while YouTube uses raw `view_count`. The pipeline does not sort at all.
-
-### Google API key stored in `QUERY STRING` (Google convention) vs header (industry standard)
-- **Location:** `recon/skeleton_ripper/llm_client.py` (line 162)
-- **Issue:** The Google Gemini API key is passed as a URL query parameter: `?key={self.api_key}`. While this is the documented Google approach, it exposes the key in URL logs, server access logs, and browser history if debugging.
-
-## Fragility / Risk Areas
-
-### Instagram scraping reliability depends on Instaloader + account health (critical)
-- **Locations:** `recon/scraper/instagram.py`, `recon/skeleton_ripper/pipeline.py` (lines 215-223)
-- **Why fragile:** The entire Instagram competitor analysis pipeline requires a working Instaloader session with a valid Instagram login. Instagram aggressively rate-limits and bans automated access. Session files can expire, IPs can be blocked, 2FA accounts can't be used, and platform changes (API updates) can break Instaloader entirely. There is no graceful degradation path for when Instagram scraping fails — the pipeline throws `RuntimeError`.
-
-### Subprocess calls to yt-dlp without timeout on parse (medium)
-- **Location:** `recon/scraper/youtube.py` (lines 56-69)
-- **Why fragile:** The `subprocess.run()` has a 120-second timeout, but if yt-dlp outputs a large amount of data (e.g., for a channel with 1000s of videos and `--flat-playlist`), stdout parsing could be slow. The `result.stdout.strip().split("\n")` could produce a large (5000+ items) list that is then processed sequentially.
-
-### Multi-provider LLM client has no request retry abstraction (medium)
-- **Location:** `recon/skeleton_ripper/llm_client.py`
-- **Why fragile:** The `chat()` method has retry logic, but the `_call_openai`, `_call_anthropic`, `_call_google`, `_call_ollama` methods each format requests differently and handle errors independently. There's no standardized request abstraction layer. Adding a new provider requires duplicating the full request/retry/error-handling pattern. The `google` provider uses a different model name format than others, risking configuration errors.
-
-### `recon/scraper/downloader.py` sends API key in Authorization header over HTTP (low)
-- **Location:** `recon/scraper/downloader.py` (line 57)
-- **Why:** The OpenAI transcription sends the API key over HTTPS (secure), but if there's ever a debug proxy or MITM, the API key is visible in the header. This is acceptable practice but worth noting for security-conscious deployments.
-
-### The `skeleton_ripper` pipeline uses file system as job state (medium)
-- **Locations:** `recon/skeleton_ripper/pipeline.py` (lines 366-401)
-- **Why fragile:** Pipeline outputs are saved to timestamped directories (`data/recon/reports/{timestamp}_{job_id}/`). If the system clock is wrong, timestamps can collide. There's no cleanup mechanism — these reports accumulate forever in the filesystem.
-
-### Flask app runs on fixed port 5001 (low)
-- **Location:** `recon/web/app.py` (line 378)
-- **Why fragile:** Port 5001 might be in use on some systems. There is no port fallback or PORT environment variable support. The `run-recon-ui.sh` script doesn't check for port availability.
-
-## Improvement Opportunities
-
-### Standardize on pyproject.toml with package metadata and tool config
-- **What to do:** Create a `pyproject.toml` with project metadata, test runner config (`[tool.pytest.ini_options]`), linter config (`[tool.ruff]`), and an editable install path. This eliminates all `sys.path.insert` hacks.
-- **Expected benefit:** Clean imports, standard test runner, consistent linting, and a single source of truth for project configuration.
-
-### Add a proper test suite for `recon/` module
-- **What to do:** Write unit tests for `recon/config.py` (credential loading, competitor loading), `recon/tracker.py` (state management, staleness checks), `recon/bridge.py` (topic generation), `scoring/engine.py` (scoring logic). Use mocking for external dependencies (instaloader, yt-dlp, OpenAI).
-- **Expected benefit:** Confidence in refactoring, early detection of regressions, documented behavior.
-
-### Centralize .env loading into a single utility module
-- **What to do:** Move `load_env()` and `update_env()` from the individual scripts into a shared utility module (e.g., `scripts/lib/env_utils.py` or add to `recon/utils/`).
-- **Expected benefit:** Eliminates code duplication, ensures consistent env loading behavior.
-
-### Implement in-memory caching for `agent-brain.json`
-- **What to do:** Use `functools.lru_cache` or a simple TTL-based cache for `load_brain_context()` and related functions in `recon/config.py`, `recon/bridge.py`, and `scoring/engine.py`.
-- **Expected benefit:** Eliminates redundant file I/O on every request.
-
-### Add schema validation
-- **What to do:** Use Python's `jsonschema` library to validate data against the schemas in `schemas/`. Add validation at key write points (saving topics, saving skeletons, saving scripts).
-- **Expected benefit:** Catches data format drift early. Makes schema files actually useful.
-
-### Add active_jobs cleanup in the Flask web UI
-- **What to do:** Set a max age or max size for `active_jobs`, or clean up completed jobs after a timeout.
-- **Expected benefit:** Prevents memory leak in long-running UI sessions.
-
-### Add port fallback and configuration to Flask UI
-- **What to do:** Check port availability and fall back to next port. Support `PORT` environment variable. Remove `debug=True` by default.
-- **Expected benefit:** More robust local server startup.
+- **Issue:** `requirements.txt` lists six optional dependencies as commented-out lines with installation instructions in comments. This means they don't get installed by default and developers must manually discover and uncomment them.
+- **Files:** `requirements.txt` (lines 7-8, 22-24)
+- **Impact:** Poor developer experience. Features like `instaloader`, `openai-whisper`, `faster-whisper`, `Pillow`, and `matplotlib` are silently disabled. Users encounter `ImportError` or `WHISPER_AVAILABLE = False` at runtime without clear guidance.
+- **Fix approach:** Either make them required (add to requirements.txt), use optional extras groups (`pip install creatorforge[all]`), or auto-detect and log clear installation instructions at first use.
 
 ---
 
-*Concerns audit: 2026-07-09*
+## Security Considerations
+
+### Hardcoded API Key in Production Code
+
+- **Risk:** `production/AudioGeneration/tts_generation.py` contains a hardcoded API key `API_KEY = "your-api-key-3"` at line 12. If committed (it is currently), this exposes credentials in the source repository.
+- **Files:** `production/AudioGeneration/tts_generation.py` (line 12)
+- **Current mitigation:** The value `"your-api-key-3"` appears to be a placeholder, but the code reads it as a live credential — `headers["x-goog-api-key"] = API_KEY` at line 121. If any developer replaces this with a real key, it will be committed to git.
+- **Recommendations:** Move API key to environment variable (`GEMINI_API_KEY`) or `.env` file. The script should fail with a clear error if the environment variable is not set.
+- **Priority:** High
+
+### Hardcoded Proxy URL with Localhost Assumption
+
+- **Risk:** `production/AudioGeneration/tts_generation.py` line 11 hardcodes `PROXY_URL = "http://127.0.0.1:8317/v1beta/models/gemini-3.1-flash-tts-preview:generateContent"`. This assumes a local proxy server is running on port 8317, and uses plain HTTP.
+- **Files:** `production/AudioGeneration/tts_generation.py` (line 11)
+- **Current mitigation:** None — the URL is hardcoded with no fallback or configuration option.
+- **Recommendations:** Make the proxy URL configurable via environment variable with a sensible default. Document that the proxy must support HTTPS in production.
+
+### Flask `debug=True` in Production Entry Point
+
+- **Risk:** `agent_core/recon/web/app.py` line 381 runs `app.run(host='0.0.0.0', port=5001, debug=True)`. Flask's debug mode exposes the Werkzeug debugger and interactive debugger console, which allows arbitrary code execution if triggered. The host `0.0.0.0` means it binds to all network interfaces.
+- **Files:** `agent_core/recon/web/app.py` (lines 381)
+- **Current mitigation:** None — this is the only entry point for the Recon UI.
+- **Recommendations:** Remove `debug=True` for production use. Add a `--debug` CLI flag or `FLASK_ENV=development` check. Restrict to `127.0.0.1` by default and add a `--host` flag.
+
+### Plaintext Credential Storage
+
+- **Risk:** `agent_core/recon/config.py` stores credentials in a plaintext `.credentials` file at `data/recon/.credentials` (line 17). This file is gitignored but stored unencrypted on disk with Instagram passwords, API keys, etc.
+- **Files:** `agent_core/recon/config.py` (lines 140-146, the `save_credentials()` function)
+- **Current mitigation:** The file is in `.gitignore` (line 14: `data/recon/`).
+- **Recommendations:** Use the system keyring (`keyring` Python package) or at minimum encrypt the file with a derived key. The `.credentials` file should have restricted file permissions (`0600`).
+
+### Insecure Settings API — No Validation or Sanitization
+
+- **Risk:** `agent_core/recon/web/app.py` `api_save_settings()` (line 348) accepts any key in the request body and saves it directly to the credentials file without validation, sanitization, or type checking.
+- **Files:** `agent_core/recon/web/app.py` (lines 348-361)
+- **Current mitigation:** The write path is to a file in `.gitignore`'d directory.
+- **Recommendations:** Whitelist allowed setting keys. Validate values before saving (e.g., URL format for base URLs, non-empty for API keys). Log all credential changes for auditability.
+
+### OAuth Token Stored in Home Directory Plaintext
+
+- **Risk:** YouTube OAuth token is stored at `~/.creatorforge/yt-token.json` (plaintext JSON) containing `token`, `refresh_token`, `client_secret`, etc.
+- **Files:** `scripts/setup-yt-oauth.py` (line 35, 57-67), `scripts/fetch-yt-analytics.py` (line 38)
+- **Current mitigation:** The `.creatorforge` directory is in `.gitignore` (line 73).
+- **Recommendations:** Restrict file permissions to `0600` after writing. Consider using the system keyring for OAuth token storage.
+
+---
+
+## Performance Bottlenecks
+
+### No Database Connection Pooling — Connection Per Query
+
+- **Problem:** `agent_core/recon/storage/database.py` and `models.py` open a new SQLite connection for every query. The `get_db_connection()` function (line 85) is called in `Asset.get()`, `Asset.list()`, `Asset.search()`, `Collection.list()`, and all transaction operations. Each call creates a new connection with no reuse.
+- **Files:** `agent_core/recon/storage/database.py`, `agent_core/recon/storage/models.py`
+- **Cause:** No connection pooling or persistent connection pattern. Every CRUD operation opens, queries, and closes a connection.
+- **Improvement path:** Use a connection pool (e.g., `sqlite3` connection cached per-thread) or use the `db_transaction()` context manager consistently. SQLite performs best with a single persistent connection per thread.
+
+### Full Transcript Cache Iteration on Every Pipeline Run
+
+- **Problem:** `SkeletonRipperPipeline._scrape_and_transcribe()` iterates through all cached transcript files using `list(self.cache.cache_dir.glob(...))` to check for cached content. With hundreds of cached files, this becomes a filesystem bottleneck.
+- **Files:** `agent_core/recon/skeleton_ripper/pipeline.py` (lines 344-361)
+- **Cause:** Cache lookup uses filesystem glob pattern matching instead of an index.
+- **Improvement path:** Maintain a lightweight index (e.g., JSON map of platform/username/video_id → cache path) in memory, rebuilt only on startup.
+
+### Large JSON Payloads in LLM Prompts
+
+- **Problem:** `agent_core/recon/skeleton_ripper/synthesizer.py` passes the full `skeletons_json` (potentially hundreds of KB of JSON) into the LLM prompt via `json.dumps(skeletons, indent=2)`. This is sent to the LLM's chat completion API and billed per-token.
+- **Files:** `agent_core/recon/skeleton_ripper/prompts.py` (line 177)
+- **Cause:** No summarization or truncation before injecting skeleton data into prompts.
+- **Improvement path:** Summarize skeleton data (aggregated stats, top patterns, compressed format) before passing to the LLM to reduce token consumption and cost.
+
+### Sequential Per-Competitor Scraping
+
+- **Problem:** `SkeletonRipperPipeline._scrape_and_transcribe()` processes competitors sequentially (line 234: `for idx, username in enumerate(config.usernames)`). For multi-competitor runs, each competitor's reels are scraped, downloaded, transcribed, and cached one at a time.
+- **Files:** `agent_core/recon/skeleton_ripper/pipeline.py` (lines 234-341)
+- **Cause:** No parallelization strategy for multiple competitors.
+- **Improvement path:** Use `concurrent.futures.ThreadPoolExecutor` to scrape and transcribe competitors in parallel. The Instagram API rate limits (line 169: sleep 1s per 12 reels) make this particularly beneficial.
+
+---
+
+## Fragile Areas
+
+### In-Memory Job Tracking with No Persistence
+
+- **Files:** `agent_core/recon/web/app.py` (lines 53: `active_jobs = {}`)
+- **Why fragile:** The `active_jobs` dictionary lives only in the Flask process memory. If the server restarts (deploy, crash, or `--reload` with debug=True), all running and completed job state is lost. There's no upper bound — long-running sessions accumulate jobs unboundedly.
+- **Safe modification:** Add a cap on active jobs (e.g., `active_jobs = OrderedDict(maxlen=100)`). Persist completed job state to the existing SQLite database. Use a background cleanup thread for stale entries.
+- **Test coverage:** None — no tests exist for any route handler.
+
+### File-Based State With No Locking
+
+- **Files:** `agent_core/recon/tracker.py` (lines 18-36)
+- **Why fragile:** `filter_new_content()` reads, modifies, and saves state (line 35) but the caller is responsible for saving. If `save_state()` is not called, state mutations are lost. Multiple concurrent requests could cause interleaved read/write races. The `get_stale_competitors()` function reads state without any synchronization.
+- **Safe modification:** Use `atomicwrites` or write to a temp file + rename pattern. Add a file-level lock (`fcntl.flock` or `portalocker`). Make state saving automatic in `filter_new_content()`.
+- **Test coverage:** None.
+
+### File System State Manager — No Cleanup or Bounds
+
+- **Files:** `agent_core/recon/utils/state_manager.py` (lines 27-57)
+- **Why fragile:** `save_job_state()` writes a new JSON file per job with no cleanup. Over many runs, the state directory accumulates unbounded files. `list_jobs()` reads all `.json` files in the directory — on every call.
+- **Safe modification:** Add a TTL-based cleanup in the StateManager constructor. Cache the list of recent jobs in memory. Use the SQLite database instead of files for job state.
+- **Test coverage:** None.
+
+### Unbounded Logger Error Registry
+
+- **Files:** `agent_core/recon/utils/logger.py` (line 56: `self.error_registry: Dict[str, Dict[str, Any]] = {}`)
+- **Why fragile:** `error()` and `critical()` methods append error entries to `self.error_registry` dict with no upper bound. Over a long-running session, this grows unboundedly in memory. The singleton pattern means it persists across requests.
+- **Safe modification:** Implement a ring buffer (max 1000 entries) or LRU cache for the error registry. Persist errors to the database or log file instead of holding them all in memory.
+
+### Batch Extraction Binary Search Fallback on Parse Failure
+
+- **Files:** `agent_core/recon/skeleton_ripper/extractor.py` (lines 102-118)
+- **Why fragile:** When JSON parsing fails for a batch, the `_handle_parse_failure` method recursively halves the batch and retries. This binary search approach doubles the number of LLM API calls on failure. Worse, a single problematic transcript in a batch of 4 can trigger 2-3 additional API calls. There's no early abort for malformed LLM responses.
+- **Safe modification:** Validate LLM response structure before attempting JSON parse. Add a cap on total retry cost. Consider extracting individually (sequential) instead of binary search when a batch fails.
+
+### Thread Safety of Logger Singleton
+
+- **Files:** `agent_core/recon/utils/logger.py` (lines 34-39)
+- **Why fragile:** The `ReconLogger` uses double-checked locking for singleton creation (line 31-39), but the `__init__` method is not fully guarded by the lock after instance creation. If two threads race on first access, both can enter `__init__`, though the `_initialized` flag (line 42) prevents re-initialization. File writes are locked with `self._file_lock` (line 123).
+- **Safe modification:** Use a module-level `_logger` initialization at import time (already partially done at line 189) instead of the class-level singleton pattern. Remove the singleton entirely and use the module-level instance.
+
+---
+
+## Scaling Limits
+
+### SQLite Concurrency
+
+- **Current capacity:** Single-writer, single-file SQLite database at `data/recon/recon.db`.
+- **Limit:** SQLite serializes all write operations. With the Flask UI + background scrapers + scheduled tasks all writing to the same database, write contention will become a bottleneck at modest scale.
+- **Scaling path:** Move to PostgreSQL for production. The application's data model (assets, collections) is simple and would map cleanly. For the immediate term, enable WAL mode: `PRAGMA journal_mode=WAL`.
+
+### Flat File Cache
+
+- **Current capacity:** All transcript caches stored as individual `.txt` files in a single `data/recon/cache/` directory.
+- **Limit:** With thousands of files, filesystem operations (glob, stat) become slow. Some filesystems degrade beyond ~10K files per directory.
+- **Scaling path:** Use a SQLite database as the cache backend with indexed lookups by (platform, username, video_id). This also enables TTL-based cache eviction and size limits.
+
+---
+
+## Test Coverage Gaps
+
+### Entire Core Application Untested
+
+- **What's not tested:** Zero test files exist anywhere in `agent_core/`, `production/`, or `scripts/`. No tests for: scoring engine, skeleton ripper pipeline, Instagram client, YouTube scraper, transcription, bridge, database models, config loading, Flask routes, or any utility module.
+- **Files:** All files in `agent_core/`, `production/`, `scripts/`
+- **Risk:** Every change to the scoring engine or pipeline is untested. Regression from editing LLM prompts or extraction logic cannot be caught. The Flask UI routes have no request/response validation tests.
+- **Priority:** High
+
+### No Integration Tests for External APIs
+
+- **What's not tested:** Instagram (instaloader), YouTube (yt-dlp), OpenAI (transcription, LLM), Pexels/Flickr (asset scraping) integrations have no integration tests.
+- **Files:** `agent_core/recon/scraper/instagram.py`, `youtube.py`, `downloader.py`, `llm_client.py`
+- **Risk:** API contract changes by third-party providers will not be caught until runtime. The instaloader library breaking changes, YouTube API deprecations, or OpenAI endpoint changes will silently break the pipeline.
+- **Priority:** Medium
+
+### Scoring Engine Logic Untested
+
+- **What's not tested:** All scoring heuristics — ICP relevance tiers, content gap calculation, proof potential detection, competitor bonuses, weighted total calculation.
+- **Files:** `agent_core/scoring/engine.py` (all 292 lines), `scoring/rescore.py` (all 132 lines)
+- **Risk:** The scoring engine drives topic prioritization. Incorrect scoring leads to bad content decisions. Edge cases like empty brain context, zero views, or malformed engagement strings are not validated.
+- **Priority:** High
+
+---
+
+## Known Bugs
+
+### Cached Transcript Parsing Ambiguity
+
+- **Symptoms:** `SkeletonRipperPipeline._get_cached_transcripts()` (line 346) parses video_id from cached filename by splitting on `_` and taking the last part. Filenames follow the pattern `{platform}_{username}_{video_id}.txt`. If the video_id itself contains underscores (possible with some platform's IDs), the parsing produces an incorrect video_id.
+- **Files:** `agent_core/recon/skeleton_ripper/pipeline.py` (lines 346-358)
+- **Trigger:** Any video_id containing underscores.
+- **Workaround:** Manually clear cache for affected videos. The pipeline still works — the video_id is cosmetic for the cached entry.
+
+### Rescore Script View Count Extraction Fails on Certain Formats
+
+- **Symptoms:** `_extract_views()` in `agent_core/recon/scoring/rescore.py` only handles "123,456 views" and "100K views" formats. Formats like "1.2M views", "123K Views" (capital V), or "123k views" (lowercase k) will silently return 0.
+- **Files:** `agent_core/recon/scoring/rescore.py` (lines 107-118)
+- **Trigger:** Engagement signals strings from topics with non-standard view formatting.
+- **Workaround:** Manually fix the view string in the topics JSONL file before running rescore.
+
+### `_match_pillars` Catch-All Fallback Creates False Positives
+
+- **Symptoms:** `agent_core/recon/bridge.py` `_match_pillars()` (line 152-154) includes a fallback: if no pillar matches, it adds the first pillar as a catch-all. This means every topic gets assigned at least one pillar, even if it's completely unrelated.
+- **Files:** `agent_core/recon/bridge.py` (lines 140-156)
+- **Trigger:** Any topic whose text doesn't match any pillar keywords.
+- **Workaround:** None. This is by-design behavior that introduces noise in pillar classification.
+
+---
+
+## Dependencies at Risk
+
+### `instaloader` — Instagram API Scraping
+
+- **Risk:** `instaloader` scrapes Instagram's public website, not an official API. It can break without notice when Instagram changes its DOM, login flow, or rate limiting. The library also requires the user's Instagram credentials (violates Instagram ToS for scraping).
+- **Impact:** `agent_core/recon/scraper/instagram.py` becomes completely non-functional if Meta changes their graphql endpoint or login flow. Already affected by 2FA (line 86: "not supported in headless mode").
+- **Migration plan:** Investigate Instagram Basic Display API or Meta Content Publishing API for authorized read access. For competitor research, no official alternative exists — this is inherently fragile.
+
+### `yt-dlp` — YouTube Scraping
+
+- **Risk:** `yt-dlp` is under active development but YouTube frequently breaks compatibility. The tool depends on reverse-engineering YouTube's internal APIs.
+- **Impact:** `agent_core/recon/scraper/youtube.py` stops working when YouTube changes their data format or rate limiting. The `get_channel_videos()` function (line 26) parses `--dump-json` output which has changed format multiple times.
+- **Migration plan:** Use YouTube Data API v3 for metadata (already partially set up in `scripts/fetch-yt-analytics.py`) and remove yt-dlp dependency for the metadata fetching path.
+
+---
+
+## Missing Critical Features
+
+### No Force Alignment Implementation
+
+- **Problem:** `production/AudioGeneration/force_align.py` is a stub. Word-level force alignment is required for hyperframe animation syncing (word-by-word caption highlighting). Without it, the render pipeline cannot produce synced captions.
+- **Blocks:** Hyperframe caption animation, word-level timing for video render.
+
+### No B-Roll or Asset Fetching Implementation
+
+- **Problem:** `production/VisualGeneration/asset_scraper.py` and `sfx_scraper.py` are stubs. The entire visual asset pipeline (Pexels API, Flickr API, Pixabay, Freesound) is unimplemented.
+- **Blocks:** Automated video production — no way to source footage, images, or sound effects programmatically.
+
+### No YouTube Upload Implementation
+
+- **Problem:** `agent_core/publishing/uploader.py` and `oauth.py` are stubs. The entire YouTube Data API v3 upload flow, OAuth token lifecycle management, and scheduling is unimplemented.
+- **Blocks:** End-to-end content pipeline. Videos can be rendered but not published.
+
+---
+
+*Concerns audit: 2026-07-10*
