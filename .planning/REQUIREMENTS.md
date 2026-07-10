@@ -29,11 +29,12 @@
 ### YouTube Publishing (PUBLISH)
 
 - [ ] **PUBLISH-01**: Implement OAuth 2.0 token lifecycle with offline access and auto-refresh
-- [ ] **PUBLISH-02**: Implement resumable YouTube upload with exponential backoff + chunked transfer
+- [ ] **PUBLISH-02**: Implement resumable YouTube upload with exponential backoff + chunked transfer; include thumbnail upload (`thumbnails.set`)
 - [ ] **PUBLISH-03**: Implement QuotaBudget manager with persistent daily tracking
-- [ ] **PUBLISH-04**: Generate SEO-optimized title, description, tags via LLM
+- [ ] **PUBLISH-04**: Generate SEO-optimized title, description, tags, category, and age rating via LLM
 - [ ] **PUBLISH-05**: Support privacy status (public/private/unlisted) and `publishAt` scheduling
-- [ ] **PUBLISH-06**: Integrate publishing with channel config (`channels/{Name}/channel_config.json`)
+- [ ] **PUBLISH-06**: Generate/select thumbnail — auto-extract keyframe from video or flag for user-provided image
+- [ ] **PUBLISH-07**: Integrate publishing with channel config (`channels/{Name}/channel_config.json`)
 
 ### Analytics & Brain Evolution (ANALYTICS)
 
@@ -105,7 +106,58 @@
 
 | REQ-ID | Phase | Verified | Notes |
 |--------|-------|----------|-------|
-| - | - | - | _(filled by roadmap)_ |
+| PIPE-01 | Phase 1 | Pending | Checkpoint artifacts between all pipeline stages |
+| PIPE-02 | Phase 1 | Pending | Resume-from-checkpoint on crash/restart |
+| PIPE-03 | Phase 1 | Pending | Schema validation as quality gates at stage boundaries |
+| PIPE-04 | Phase 1 | Pending | QuotaBudget as shared service for all quota-aware stages |
+| PIPE-05 | Phase 1 | Pending | File locking via portalocker for tracker/state files |
+| PIPE-06 | Phase 1 | Pending | Cap active_jobs dict with LRU eviction |
+| SEC-01 | Phase 2 | Pending | Move hardcoded Gemini API key to env var |
+| SEC-02 | Phase 2 | Pending | Remove debug=True; add --debug CLI flag |
+| SEC-03 | Phase 2 | Pending | Encrypt credential storage; restrict perms to 0600 |
+| SEC-04 | Phase 2 | Pending | Whitelist and validate allowed keys in settings API |
+| SEC-05 | Phase 2 | Pending | Create pyproject.toml with proper packaging |
+| SEC-06 | Phase 2 | Pending | Replace sys.path hacks with proper imports |
+| SEC-07 | Phase 2 | Pending | Remove dead transcribe_video_openai wrapper |
+| SEC-08 | Phase 2 | Pending | Restrict Flask to 127.0.0.1 by default; --host flag |
+| TEST-01 | Phase 3 | Pending | Set up pytest and pytest-cov |
+| TEST-02 | Phase 3 | Pending | Unit tests for scoring engine |
+| TEST-03 | Phase 3 | Pending | Unit tests for skeleton pipeline |
+| TEST-04 | Phase 3 | Pending | Unit tests for bridge module |
+| TEST-05 | Phase 3 | Pending | Unit tests for database models |
+| TEST-06 | Phase 3 | Pending | Unit tests for config/credential loading |
+| TEST-07 | Phase 4 | Pending | JSON Schema validation tests for all 12 schemas |
+| TEST-08 | Phase 4 | Pending | CI pipeline: lint, type-check, test |
+| TEST-09 | Phase 4 | Pending | Mock-based tests for YouTube Analytics fetcher |
+| TEST-10 | Phase 4 | Pending | Mock-based tests for Instagram Insights fetcher |
+| PUBLISH-01 | Phase 5 | Pending | OAuth 2.0 token lifecycle with offline access |
+| PUBLISH-02 | Phase 5 | Pending | Resumable upload with exponential backoff |
+| PUBLISH-03 | Phase 5 | Pending | QuotaBudget manager for publishing pipeline |
+| PUBLISH-04 | Phase 5 | Pending | SEO-optimized title, description, tags via LLM |
+| PUBLISH-05 | Phase 5 | Pending | Privacy status and publishAt scheduling |
+| PUBLISH-06 | Phase 5 | Pending | Channel config integration |
+| ANALYTICS-01 | Phase 6 | Pending | 24h-delayed analytics collection per video |
+| ANALYTICS-02 | Phase 6 | Pending | Persist analytics as JSONL with schema |
+| ANALYTICS-06 | Phase 6 | Pending | Analytics aggregate functions |
+| ANALYTICS-03 | Phase 7 | Pending | Cross-channel insight aggregation |
+| ANALYTICS-04 | Phase 7 | Pending | Brain weight updater from performance data |
+| ANALYTICS-05 | Phase 7 | Pending | Integrate brain weights into scoring engine |
+| ANALYTICS-07 | Phase 7 | Pending | Brain evolution protocol |
+| PROD-AUDIO-01 | Phase 8 | Pending | TTS provider with multi-provider fallback |
+| PROD-AUDIO-02 | Phase 8 | Pending | Word-level force alignment via faster-whisper |
+| PROD-AUDIO-03 | Phase 8 | Pending | Pin faster-whisper; validate alignment accuracy |
+| PROD-AUDIO-04 | Phase 8 | Pending | Integrate aligned transcript with scene timing |
+| PROD-VISUAL-01 | Phase 9 | Pending | Pexels API B-roll scraping with caching |
+| PROD-VISUAL-02 | Phase 9 | Pending | Pixabay API as Pexels fallback |
+| PROD-VISUAL-03 | Phase 9 | Pending | Freesound API SFX scraping |
+| PROD-VISUAL-04 | Phase 9 | Pending | SQLite-backed asset cache with TTL eviction |
+| PROD-VISUAL-05 | Phase 9 | Pending | Rate limit and quota handling for stock APIs |
+| PROD-VISUAL-06 | Phase 9 | Pending | Remove unused deps or move to extras |
+| PROD-RENDER-01 | Phase 10 | Pending | Single-pass FFmpeg filter_compositor |
+| PROD-RENDER-02 | Phase 10 | Pending | Multi-format output (16:9, 9:16, 1:1) |
+| PROD-RENDER-03 | Phase 10 | Pending | Integrate audio + captions + visuals into render |
+| PROD-RENDER-04 | Phase 10 | Pending | Scene template renderer (overlays, transitions) |
+| PROD-RENDER-05 | Phase 10 | Pending | Per-channel render config in channel_config.json |
 
 ---
 
