@@ -19,10 +19,10 @@ data/angles/
 # Keep template files tracked
 !data/cta-templates.json
 
-# Recon runtime data
-recon/data/
-recon/cache/
-recon/*.db
+# Recon runtime data (legacy — moved to agent_core/recon/)
+agent_core/recon/data/
+agent_core/recon/cache/
+agent_core/recon/*.db
 
 # Logs
 logs/
@@ -40,12 +40,30 @@ node_modules/
 # macOS
 .DS_Store
 
+# Channel runtime data (per-channel, user-generated)
+channels/*/brain.json
+channels/*/data/
+channels/*/active_production/assets/
+channels/*/active_production/render/
+channels/*/active_production/scenes/*
+!channels/*/active_production/scenes/.gitkeep
+channels/*/active_production/active_script.json
+channels/*/active_production/aligned_transcript.json
+.channel-active
+
+# Keep channel config tracked
+!channels/*/channel_config.json
+
+# Production output (generated)
+production/RenderEngine/render/
+
 # PAUL workflow state (development only)
 .paul/
 
 # Personal reports and scraped video data
 *-report.md
 ∕tmp∕*/
+# .planning/ — planning docs tracked in version control
 
 # SQLite databases
 *.db
@@ -54,6 +72,7 @@ node_modules/
 
 # OAuth credentials (never commit)
 scripts/client_secret.json
+~/.creatorforge/
 
 # IDE
 .vscode/

@@ -1,0 +1,41 @@
+{
+  "$schema": "../../schemas/channel-config.schema.json",
+  "channel_name": "ChannelA",
+  "brand": {
+    "name": "My Channel",
+    "tagline": "",
+    "primary_color": "#FF6B35",
+    "secondary_color": "#004E89",
+    "font_primary": "Inter, sans-serif",
+    "font_display": "Poppins, sans-serif",
+    "logo_svg": ""
+  },
+  "youtube": {
+    "channel_id": "",
+    "oauth_token_path": "~/.creatorforge/yt-token.json",
+    "upload_defaults": {
+      "category": "Education",
+      "language": "en",
+      "visibility": "private"
+    }
+  },
+  "production": {
+    "render_width": 1080,
+    "render_height": 1920,
+    "fps": 30,
+    "tts": {
+      "provider": "gemini",
+      "characters": {
+        "main": {
+          "voice": "Zephyr",
+          "style": "Vocal Smile",
+          "pace": "Natural",
+          "accent": "American (Gen)",
+          "profile": "Warm and educational"
+        }
+      }
+    }
+  },
+  "created_at": "",
+  "updated_at": ""
+}
