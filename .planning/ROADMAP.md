@@ -13,9 +13,9 @@
 - [ ] **Phase 5: YouTube Publishing** — Implement OAuth 2.0 with dual-credential partitioning, resumable upload with thumbnails, SEO metadata generation, and publication scheduling
 - [ ] **Phase 6: Analytics Collection & Storage** — Dual-phase polling (24h basic + 72h deep), schema-validated persistence
 - [ ] **Phase 7: Brain Evolution Loop** — Evolve agent brain learning weights from real performance data to close the content strategy feedback loop
-- [ ] **Phase 8: Audio Production** — Implement multi-provider TTS fallback chain and word-level force alignment for captions
-- [ ] **Phase 9: Visual Asset Pipeline** — Source B-roll footage, images, and sound effects from stock APIs with local caching
-- [ ] **Phase 10: Video Rendering (Two-Pass Hybrid)** — HyperFrames Puppeteer rasterization → FFmpeg composition with multi-format output
+- [ ] **Phase 8: Audio Production (Per-Scene)** — Per-scene TTS + force alignment + subtitle generation, temp asset management
+- [ ] **Phase 9: Visual Asset Pipeline (Consistent + Temp)** — Consistent/temp split, stock API sourcing, character SVGs, global + channel library
+- [ ] **Phase 10: Scene Assembly & Final Render** — Script splitting → per-scene two-pass render → assembly with subtitles + transitions → multi-format output → temp cleanup
 - [ ] **Phase 11: Agent Documentation** — Write AGENTS.md workflow directives and process-specific markdown files for agentic automation
 
 ---
@@ -23,17 +23,18 @@
 ## Phase Details
 
 ### Phase 1: Foundation & Pipeline Infrastructure
-**Goal**: Pipeline stages can produce typed, schema-validated checkpoint artifacts, resume from crashes, share the QuotaBudget service safely, and support dual-credential partitioning (scraping vs publishing).
+**Goal**: Pipeline stages can produce typed, schema-validated checkpoint artifacts (including scene-level), resume from crashes, share the QuotaBudget service safely, and support dual-credential partitioning (scraping vs publishing).
 **Depends on**: Nothing
-**Requirements**: PIPE-01, PIPE-02, PIPE-03, PIPE-04, PIPE-05, PIPE-06
+**Requirements**: PIPE-01, PIPE-02, PIPE-03, PIPE-04, PIPE-05, PIPE-06, PIPE-07
 **Non-requirement action**: Kick off Google OAuth consent screen audit and YouTube API quota extension request (2-4 week lead time — must start immediately to avoid blocking Phase 5)
 **Success Criteria** (what must be TRUE):
   1. Every pipeline stage produces a typed JSON artifact validated against its JSON Schema contract
   2. Pipeline can resume from the last successful checkpoint after a crash or restart without re-running completed stages
-  3. QuotaBudget shared service tracks daily quota consumption per API and rejects requests when budget is exhausted
-  4. State management supports separate credential loading for scraping projects (API Key) and channel publishing projects (OAuth 2.0)
-  5. State files use file locking via `portalocker` to prevent concurrent access corruption
-  6. In-memory `active_jobs` dict uses LRU eviction with a configurable maximum capacity
+  3. Checkpoint system supports scene-level granularity — each scene's artifacts (audio, subtitles, rendered clip) checkpoint independently
+  4. QuotaBudget shared service tracks daily quota consumption per API and rejects requests when budget is exhausted
+  5. State management supports separate credential loading for scraping projects (API Key) and channel publishing projects (OAuth 2.0)
+  6. State files use file locking via `portalocker` to prevent concurrent access corruption
+  7. In-memory `active_jobs` dict uses LRU eviction with a configurable maximum capacity
 **Plans**: TBD
 
 ### Phase 2: Security Hardening & Packaging
@@ -110,43 +111,52 @@
   4. Weight updates only trigger after minimum 3 videos per content pillar to prevent overfitting to noise
 **Plans**: TBD
 
-### Phase 8: Audio Production
-**Goal**: Scripts can be converted to speech with automatic fallback between TTS providers and word-level caption timing via force alignment.
-**Depends on**: Phase 1 (checkpoints for audio artifacts between pipeline stages)
-**Requirements**: PROD-AUDIO-01, PROD-AUDIO-02, PROD-AUDIO-03, PROD-AUDIO-04
+### Phase 8: Audio Production (Per-Scene)
+**Goal**: Script converted to per-scene TTS audio with word-level force alignment and per-scene subtitle generation, following the scene-by-scene production workflow.
+**Depends on**: Phase 1 (scene-level checkpoints for audio artifacts), Phase 5 (need final script before splitting into scenes)
+**Requirements**: PROD-AUDIO-01, PROD-AUDIO-02, PROD-AUDIO-03, PROD-AUDIO-04, PROD-AUDIO-05, PROD-AUDIO-06
 **Parallelizable with**: Phase 9 (Visual Asset Pipeline) — no data dependency between audio and visual
 **Success Criteria** (what must be TRUE):
-  1. TTS provider selector tries Gemini first, falls back to Google Cloud TTS then Edge TTS; a single provider failure doesn't abort the pipeline
-  2. Word-level force alignment via `faster-whisper` produces accurate timestamps for 90%+ of words in testing
-  3. `faster-whisper` version is pinned in dependencies; alignment accuracy is validated against a test corpus
-  4. Aligned transcript outputs integrate with scene timing data for caption overlay rendering
+  1. Production pipeline splits script into numbered scenes; each scene gets its own `scene_XX_script.txt`
+  2. Per-scene TTS generation: each `scene_XX_script.txt` → `scene_XX_audio.wav` via multi-provider fallback chain
+  3. Per-scene force alignment: each `scene_XX_audio.wav` → word-level timestamps via `faster-whisper` with VAD pre-segmentation
+  4. Per-scene subtitle files generated from aligned transcript (SRT/VTT format) — reduces load on final render
+  5. Generated audio marked as temp asset — stored in `channels/{Name}/active_production/`, cleaned up after final video published
+  6. `faster-whisper` version pinned; alignment accuracy validated against test corpus; ≥90% word accuracy
 **Plans**: TBD
 
-### Phase 9: Visual Asset Pipeline
-**Goal**: B-roll footage, images, and sound effects are automatically sourced from stock media APIs with local caching and graceful degradation on rate limits.
-**Depends on**: Phase 1 (checkpoints for asset artifacts between pipeline stages)
-**Requirements**: PROD-VISUAL-01, PROD-VISUAL-02, PROD-VISUAL-03, PROD-VISUAL-04, PROD-VISUAL-05, PROD-VISUAL-06
+### Phase 9: Visual Asset Pipeline (Consistent + Temp Separation)
+**Goal**: Assets organized into consistent (reusable) and temp (per-video) stores, with stock API sourcing, character SVG model support, global + per-channel library.
+**Depends on**: Phase 1 (scene-level checkpoints for asset artifacts between pipeline stages)
+**Requirements**: PROD-VISUAL-01, PROD-VISUAL-02, PROD-VISUAL-03, PROD-VISUAL-04, PROD-VISUAL-05, PROD-VISUAL-06, PROD-VISUAL-07, PROD-VISUAL-08, PROD-VISUAL-09
 **Parallelizable with**: Phase 8 (Audio Production) — no data dependency between visual and audio
 **Success Criteria** (what must be TRUE):
-  1. Pexels API returns relevant B-roll footage and images from keyword search; results cached locally with configurable TTL
-  2. Pixabay API serves as fallback when Pexels has no results, hits rate limits, or returns errors
-  3. Freesound API returns relevant sound effects from content-based search terms with configurable filters
-  4. Asset cache is SQLite-backed with TTL-based eviction; cache hits serve instantly without API calls
-  5. All stock API rate limits and quotas are respected; clear error messages when limits are hit with retry hints
-  6. Unused commented-out Pillow/matplotlib dependencies are removed or moved to optional extras groups
+  1. Asset storage split into two tiers:
+     - **Consistent assets** at `assets/consistent/` — reusable images, GIFs, common SFX, character SVGs (survive across videos)
+     - **Temp assets** at `channels/{Name}/active_production/` — per-video generated assets (cleaned after publish)
+  2. Global consistent asset library at `assets/consistent/global/` with channel overrides at `channels/{Name}/assets/`
+  3. Character SVG models stored as first-class consistent assets — loaded, cached, and referenced across scenes and channels via `assets/consistent/global/characters/`
+  4. Pexels API returns relevant B-roll footage and images to consistent store; Pixabay as fallback
+  5. Freesound API returns relevant SFX to consistent store with content-based search
+  6. Asset cache is SQLite-backed with TTL-based eviction for consistent and stock assets
+  7. All stock API rate limits and quotas respected; clear error messages with retry hints
+  8. Unused commented-out dependencies removed or moved to optional extras
 **Plans**: TBD
 
-### Phase 10: Video Rendering (Two-Pass Hybrid)
-**Goal**: Complete videos are rendered via a two-pass hybrid chain — HyperFrames Puppeteer rasterization of DOM/SVG animations piped into FFmpeg for final composition with multi-format output.
-**Depends on**: Phase 1 (checkpoints for render artifacts), Phase 8 (aligned audio output), Phase 9 (visual assets output)
-**Requirements**: PROD-RENDER-01, PROD-RENDER-02, PROD-RENDER-03, PROD-RENDER-04, PROD-RENDER-05
+### Phase 10: Scene Assembly & Final Render
+**Goal**: Script split into scenes → each scene rendered individually via two-pass hybrid (Puppeteer → FFmpeg) → all scene clips assembled with subtitles and transitions → final multi-format output.
+**Depends on**: Phase 1 (scene-level checkpoints), Phase 8 (per-scene audio + subtitles), Phase 9 (consistent + temp assets)
+**Requirements**: PROD-RENDER-01, PROD-RENDER-02, PROD-RENDER-03, PROD-RENDER-04, PROD-RENDER-05, PROD-RENDER-06, PROD-RENDER-07
 **Success Criteria** (what must be TRUE):
-  1. **Pass 1 — Visual Rasterization**: HyperFrames runs Puppeteer inside a headless shell to rasterize DOM/SVG character animations and CSS keyframes frame-by-frame, piping raw frames into FFmpeg
-  2. **Pass 2 — FFmpeg Composition**: FFmpeg accepts the incoming visual frame stream, overlays the synced TTS audio track, and packages into target format container
-  3. Render supports 16:9 long-form, 9:16 Shorts, and 1:1 Instagram output formats from the same source assets
-  4. Final video includes TTS audio track, time-synced word-level captions, HyperFrames scene animations (stickman explainers, dynamic charts), and visual assets (B-roll, images, SFX)
-  5. Scene template renderer supports text overlays, transitions between scenes, and configurable visual styling via HyperFrames HTML/CSS blueprints
-  6. Render configuration (resolution, format, templates, quality presets) reads from per-channel `channel_config.json`
+  1. **Script Splitting**: Production workflow receives full script, splits into numbered scenes (`scene_01`, `scene_02`, ...) with per-scene scripts before any generation begins
+  2. **Per-Scene Two-Pass Render**: For each scene:
+     - Pass 1 — HyperFrames generates HTML/CSS blueprint → Puppeteer rasterizes DOM/SVG animations frame-by-frame
+     - Pass 2 — FFmpeg accepts frame stream, overlays per-scene audio (`scene_XX_audio.wav`), produces `scene_XX_clip.mp4`
+  3. **Per-Scene Subtitles**: Per-scene subtitle files (SRT/VTT from Phase 8) overlaid onto corresponding scene clip — subtitle generation is per-scene to reduce final render processing load
+  4. **Final Assembly**: All scene clips concatenated into master video with crossfade transitions between scenes
+  5. **Multi-Format Output**: Master video encoded to 16:9 long-form, 9:16 Shorts, and 1:1 Instagram formats
+  6. **Temp Cleanup**: Per-scene audio, subtitle files, and rendered clips cleaned up after final video published
+  7. Render configuration (resolution, format, templates, quality presets) reads from per-channel `channel_config.json`
 **Plans**: TBD
 
 ### Phase 11: Agent Documentation
@@ -173,8 +183,9 @@ Phase 1 (Foundation & Pipeline)
   │           └── Phase 7 (Brain Evolution Loop)
   ├── Phase 8 (Audio Production) ──┐
   ├── Phase 9 (Visual Pipeline) ───┤
-  │                                │
-  ├── Phase 10 (Video Rendering) ←─┘
+  │               ┌─────────────────┘
+  │               ▼
+  ├── Phase 10 (Scene Assembly & Render) ←─ Phase 8 + Phase 9 outputs
   │
   └── Phase 11 (Agent Documentation)
 ```
@@ -192,9 +203,9 @@ Phase 1 (Foundation & Pipeline)
 | 5. YouTube Publishing | 0/– | Not started | - |
 | 6. Analytics Collection & Storage | 0/– | Not started | - |
 | 7. Brain Evolution Loop | 0/– | Not started | - |
-| 8. Audio Production | 0/– | Not started | - |
-| 9. Visual Asset Pipeline | 0/– | Not started | - |
-| 10. Video Rendering (Two-Pass Hybrid) | 0/– | Not started | - |
+| 8. Audio Production (Per-Scene) | 0/– | Not started | - |
+| 9. Visual Asset Pipeline (Consistent+Temp) | 0/– | Not started | - |
+| 10. Scene Assembly & Final Render | 0/– | Not started | - |
 | 11. Agent Documentation | 0/– | Not started | - |
 
 ---
@@ -203,19 +214,19 @@ Phase 1 (Foundation & Pipeline)
 
 | Category | Total | Phase | Mapped |
 |----------|-------|-------|--------|
-| PIPE (Pipeline Infrastructure) | 6 | Phase 1 | 6/6 ✓ |
+| PIPE (Pipeline Infrastructure) | 7 | Phase 1 | 7/7 ✓ |
 | SEC (Security & Packaging) | 8 | Phase 2 | 8/8 ✓ |
 | TEST (Test Infrastructure) | 10 | Phases 3-4 | 10/10 ✓ |
 | PUBLISH (YouTube Publishing) | 8 | Phase 5 | 8/8 ✓ |
 | ANALYTICS (Analytics & Brain) | 7 | Phases 6-7 | 7/7 ✓ |
-| PROD-AUDIO (Audio Production) | 4 | Phase 8 | 4/4 ✓ |
-| PROD-VISUAL (Visual Assets) | 6 | Phase 9 | 6/6 ✓ |
-| PROD-RENDER (Video Rendering) | 5 | Phase 10 | 5/5 ✓ |
+| PROD-AUDIO (Audio Production) | 6 | Phase 8 | 6/6 ✓ |
+| PROD-VISUAL (Visual Assets) | 9 | Phase 9 | 9/9 ✓ |
+| PROD-RENDER (Scene Assembly & Render) | 7 | Phase 10 | 7/7 ✓ |
 | DOC (Agent Documentation) | 2 | Phase 11 | 2/2 ✓ |
-| **Total** | **56** | **11 phases** | **56/56 ✓** |
+| **Total** | **64** | **11 phases** | **64/64 ✓** |
 
 ---
 
 *Created: 2026-07-10*
 *Granularity: fine*
-*Revised: 2026-07-10 — added dual-credential partitioning (Phase 5), 72h analytics polling (Phase 6), Puppeteer two-pass rendering (Phase 10), Agent Documentation (Phase 11)*
+*Revised: 2026-07-10 — dual-credential (Phase 5), 72h analytics (Phase 6), scene-by-scene production workflow (Phases 8-10), consistent+temp asset split (Phase 9), per-scene subtitles (Phase 10), 64 total requirements*

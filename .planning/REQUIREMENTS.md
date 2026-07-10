@@ -52,24 +52,31 @@
 - [ ] **PROD-AUDIO-01**: Abstract TTS provider with multi-provider fallback chain (Gemini → Google Cloud TTS → Edge TTS)
 - [ ] **PROD-AUDIO-02**: Implement word-level force alignment via `faster-whisper` with VAD pre-segmentation
 - [ ] **PROD-AUDIO-03**: Pin `faster-whisper` version and validate alignment accuracy
-- [ ] **PROD-AUDIO-04**: Integrate aligned transcript with scene timing for caption rendering
+- [ ] **PROD-AUDIO-04**: Per-scene TTS generation — production splits script into scenes, generates `scene_XX_audio.wav` for each
+- [ ] **PROD-AUDIO-05**: Generate per-scene subtitle files from force-aligned transcript (SRT/VTT)
+- [ ] **PROD-AUDIO-06**: Mark generated audio as temp asset — cleaned up after final video is published
 
 ### Visual Asset Pipeline (PROD-VISUAL)
 
 - [ ] **PROD-VISUAL-01**: Implement Pexels API asset scraping for B-roll footage with caching
 - [ ] **PROD-VISUAL-02**: Implement Pixabay API as Pexels fallback for images/video
 - [ ] **PROD-VISUAL-03**: Implement Freesound API SFX scraping with content-based search
-- [ ] **PROD-VISUAL-04**: Build asset cache layer (SQLite-backed, TTL-based eviction)
-- [ ] **PROD-VISUAL-05**: Handle rate limits and API quota for all stock providers
-- [ ] **PROD-VISUAL-06**: Remove unused commented-out dependencies for Pillow/matplotlib (or move to extras)
+- [ ] **PROD-VISUAL-04**: Split asset storage into consistent (reusable) vs temp (per-video) — consistent at `assets/consistent/`, temp at `channels/{Name}/active_production/`
+- [ ] **PROD-VISUAL-05**: Implement global consistent asset library at `assets/consistent/global/` with channel overrides at `channels/{Name}/assets/`
+- [ ] **PROD-VISUAL-06**: Support character SVG models as first-class consistent assets — load, cache, reference across scenes and channels
+- [ ] **PROD-VISUAL-07**: Build asset cache layer (SQLite-backed, TTL-based eviction) for consistent and stock assets
+- [ ] **PROD-VISUAL-08**: Handle rate limits and API quota for all stock providers
+- [ ] **PROD-VISUAL-09**: Remove unused commented-out dependencies for Pillow/matplotlib (or move to extras)
 
-### Video Rendering (PROD-RENDER)
+### Scene Assembly & Final Render (PROD-RENDER)
 
-- [ ] **PROD-RENDER-01**: Implement two-pass hybrid rendering — Puppeteer rasterizes HyperFrames DOM/SVG animations frame-by-frame (Pass 1), FFmpeg accepts frame stream and composes final video with audio (Pass 2)
-- [ ] **PROD-RENDER-02**: Support multi-format output (16:9 long-form, 9:16 Shorts, 1:1 Instagram)
-- [ ] **PROD-RENDER-03**: Integrate TTS audio + captions + visual assets into final render
-- [ ] **PROD-RENDER-04**: Build scene template renderer (text overlays, transitions)
-- [ ] **PROD-RENDER-05**: Move render config into `channel_config.json` per channel
+- [ ] **PROD-RENDER-01**: Production workflow splits script into numbered scenes before generation begins
+- [ ] **PROD-RENDER-02**: Two-pass hybrid rendering per scene — Puppeteer rasterizes HyperFrames DOM/SVG animations frame-by-frame, FFmpeg accepts frame stream and composes scene video clip
+- [ ] **PROD-RENDER-03**: Assemble all rendered scene clips into final video with crossfade transitions between scenes
+- [ ] **PROD-RENDER-04**: Overlay per-scene subtitle tracks (SRT/VTT from PROD-AUDIO-05) onto corresponding scene clips
+- [ ] **PROD-RENDER-05**: Support multi-format output (16:9 long-form, 9:16 Shorts, 1:1 Instagram) from assembled master
+- [ ] **PROD-RENDER-06**: Clean up temp assets (per-scene audio, subtitle files, rendered clips) after final video is published
+- [ ] **PROD-RENDER-07**: Move render config into `channel_config.json` per channel
 
 ### Pipeline Infrastructure (PIPE)
 
@@ -79,6 +86,7 @@
 - [ ] **PIPE-04**: Implement QuotaBudget as a shared service consumed by all quota-aware stages
 - [ ] **PIPE-05**: Add file locking (`portalocker`) to tracker and state files
 - [ ] **PIPE-06**: Cap in-memory `active_jobs` dict with LRU eviction
+- [ ] **PIPE-07**: Checkpoint system supports scene-level granularity — each scene's artifacts (audio, subtitles, rendered clip) checkpoint independently for resume
 
 ---
 

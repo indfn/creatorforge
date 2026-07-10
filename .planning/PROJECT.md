@@ -57,6 +57,10 @@ One command from idea to published video: discover competitor patterns → gener
 | Two-pass hybrid rendering | Puppeteer rasterizes HyperFrames DOM/CSS → FFmpeg composes with audio | Phase 10 |
 | Dual-phase analytics polling | Basic metrics at 24h, deep behavioral metrics at 72h (YouTube stabilization window) | Phase 6 |
 | HyperFrames as animation backbone | HTML/SVG/CSS keyframe animations rasterized via headless browser, not native FFmpeg filters | Phase 10 |
+| Scene-by-scene production | Full script split into numbered scenes; each scene generates audio, subtitles, and render independently before final assembly | Phases 8-10 |
+| Consistent vs temp asset separation | Reusable assets (images, SFX, character SVGs) in `assets/consistent/`; per-video generated assets in temp, cleaned after publish | Phase 9 |
+| Per-scene subtitle generation | Subtitles generated per-scene during audio production, not during final render — reduces final assembly processing load | Phase 10 |
+| Global + channel asset library | Global consistent assets at `assets/consistent/global/` with per-channel overrides at `channels/{Name}/assets/` | Phase 9 |
 | Agent documentation first-class | AGENTS.md + process-specific docs for any AI CLI to orchestrate the pipeline | Phase 11 |
 
 ---
