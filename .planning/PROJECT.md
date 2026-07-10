@@ -42,6 +42,7 @@ One command from idea to published video: discover competitor patterns → gener
 - Instagram via Instaloader (fragile — ToS-bound)
 - TTS script untouched (custom Gemini endpoint, no changes allowed)
 - `scene` and `context` are dynamic per-scene, not stored in channel config
+- HyperFrames generates HTML/SVG/CSS animations — renders via Puppeteer headless browser to FFmpeg frame pipe, not native FFmpeg filter filters
 
 ## Key Decisions
 
@@ -52,6 +53,11 @@ One command from idea to published video: discover competitor patterns → gener
 | JSON Schema contracts | Validate inter-module data shapes | Done |
 | Multi-channel isolation | `channels/{Name}/` per-channel config + brain | Done |
 | OpenAI-compatible LLM pattern | Works with any provider via env vars | Done |
+| Dual-credential YouTube access | Scraping (API key, Project A) isolated from Publishing (OAuth, Project B) | Phase 5 |
+| Two-pass hybrid rendering | Puppeteer rasterizes HyperFrames DOM/CSS → FFmpeg composes with audio | Phase 10 |
+| Dual-phase analytics polling | Basic metrics at 24h, deep behavioral metrics at 72h (YouTube stabilization window) | Phase 6 |
+| HyperFrames as animation backbone | HTML/SVG/CSS keyframe animations rasterized via headless browser, not native FFmpeg filters | Phase 10 |
+| Agent documentation first-class | AGENTS.md + process-specific docs for any AI CLI to orchestrate the pipeline | Phase 11 |
 
 ---
 

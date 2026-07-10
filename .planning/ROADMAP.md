@@ -10,19 +10,20 @@
 - [ ] **Phase 2: Security Hardening & Packaging** — Fix all known security vulnerabilities and properly package the project as a pip-installable module
 - [ ] **Phase 3: Test Framework & Core Unit Tests** — Set up pytest and write comprehensive unit tests for existing core logic modules
 - [ ] **Phase 4: CI Pipeline & Extended Tests** — Add schema validation tests, mock-based API tests, and GitHub Actions automation
-- [ ] **Phase 5: YouTube Publishing** — Implement OAuth 2.0, resumable upload with thumbnails, SEO metadata generation, and publication scheduling
-- [ ] **Phase 6: Analytics Collection & Storage** — Collect and persist video performance data with proper schema validation
+- [ ] **Phase 5: YouTube Publishing** — Implement OAuth 2.0 with dual-credential partitioning, resumable upload with thumbnails, SEO metadata generation, and publication scheduling
+- [ ] **Phase 6: Analytics Collection & Storage** — Dual-phase polling (24h basic + 72h deep), schema-validated persistence
 - [ ] **Phase 7: Brain Evolution Loop** — Evolve agent brain learning weights from real performance data to close the content strategy feedback loop
 - [ ] **Phase 8: Audio Production** — Implement multi-provider TTS fallback chain and word-level force alignment for captions
 - [ ] **Phase 9: Visual Asset Pipeline** — Source B-roll footage, images, and sound effects from stock APIs with local caching
-- [ ] **Phase 10: Video Rendering** — Render full videos with single-pass FFmpeg composition, multi-format output, and scene templates
+- [ ] **Phase 10: Video Rendering (Two-Pass Hybrid)** — HyperFrames Puppeteer rasterization → FFmpeg composition with multi-format output
+- [ ] **Phase 11: Agent Documentation** — Write AGENTS.md workflow directives and process-specific markdown files for agentic automation
 
 ---
 
 ## Phase Details
 
 ### Phase 1: Foundation & Pipeline Infrastructure
-**Goal**: Pipeline stages can produce typed, schema-validated checkpoint artifacts, resume from crashes, and share the QuotaBudget service safely across concurrent operations.
+**Goal**: Pipeline stages can produce typed, schema-validated checkpoint artifacts, resume from crashes, share the QuotaBudget service safely, and support dual-credential partitioning (scraping vs publishing).
 **Depends on**: Nothing
 **Requirements**: PIPE-01, PIPE-02, PIPE-03, PIPE-04, PIPE-05, PIPE-06
 **Non-requirement action**: Kick off Google OAuth consent screen audit and YouTube API quota extension request (2-4 week lead time — must start immediately to avoid blocking Phase 5)
@@ -30,8 +31,9 @@
   1. Every pipeline stage produces a typed JSON artifact validated against its JSON Schema contract
   2. Pipeline can resume from the last successful checkpoint after a crash or restart without re-running completed stages
   3. QuotaBudget shared service tracks daily quota consumption per API and rejects requests when budget is exhausted
-  4. State files use file locking via `portalocker` to prevent concurrent access corruption
-  5. In-memory `active_jobs` dict uses LRU eviction with a configurable maximum capacity
+  4. State management supports separate credential loading for scraping projects (API Key) and channel publishing projects (OAuth 2.0)
+  5. State files use file locking via `portalocker` to prevent concurrent access corruption
+  6. In-memory `active_jobs` dict uses LRU eviction with a configurable maximum capacity
 **Plans**: TBD
 
 ### Phase 2: Security Hardening & Packaging
@@ -72,27 +74,29 @@
 **Plans**: TBD
 
 ### Phase 5: YouTube Publishing
-**Goal**: Users can authorize their YouTube channel via OAuth, upload videos with SEO-optimized metadata and thumbnails, control privacy, schedule publication, and operate within API quota limits.
-**Depends on**: Phase 1 (QuotaBudget, checkpoints for upload state), Phase 2 (secure credential storage for OAuth tokens)
+**Goal**: Users can authorize their YouTube channel via OAuth, upload videos with SEO-optimized metadata and thumbnails, control privacy, schedule publication, and operate within API quota limits using dual-credential partitioning.
+**Depends on**: Phase 1 (QuotaBudget, checkpoints, dual-credential state), Phase 2 (secure credential storage for OAuth tokens)
 **Requirements**: PUBLISH-01, PUBLISH-02, PUBLISH-03, PUBLISH-04, PUBLISH-05, PUBLISH-06, PUBLISH-07
 **Success Criteria** (what must be TRUE):
   1. User completes OAuth 2.0 flow with offline access; token persists per channel and auto-refreshes before expiry
-  2. Video uploads succeed via resumable protocol with 256KB-multiple chunks, exponential backoff, and progress reporting; thumbnail upload via `thumbnails.set`
-  3. QuotaBudget manager for publishing checks `can_spend()` before each API call and defers uploads when daily budget is low
-  4. LLM generates on-brand title, description, tags, category, and age rating for each video; user can review generated metadata before posting
-  5. Thumbnail is auto-extracted from a video keyframe or accepts user-provided image; uploaded via `thumbnails.set`
-  6. Uploads support public/private/unlisted visibility and future-dated `publishAt` scheduling
-  7. Publishing configuration (channel ID, privacy defaults, upload settings) reads from per-channel `channel_config.json`
+  2. The upload flow runs on an isolated OAuth API project, preserving the 10,000 daily quota block solely for verified video publishes and analytics retrieval
+  3. Scraping uses separate API-key-only credentials (Project A) so quota exhaustion from competitor discovery never blocks publishing
+  4. Video uploads succeed via resumable protocol with 256KB-multiple chunks, exponential backoff, and progress reporting; thumbnail upload via `thumbnails.set`
+  5. LLM generates on-brand title, description, tags, category, and age rating for each video; user can review generated metadata before posting
+  6. Thumbnail is auto-extracted from a video keyframe or accepts user-provided image; uploaded via `thumbnails.set`
+  7. Uploads support public/private/unlisted visibility and future-dated `publishAt` scheduling
+  8. Publishing configuration (channel ID, privacy defaults, upload settings) reads from per-channel `channel_config.json`
 **Plans**: TBD
 
 ### Phase 6: Analytics Collection & Storage
-**Goal**: Performance data from published videos is collected after a 24-hour delay, validated against schema, and persisted for downstream analysis.
+**Goal**: Performance data from published videos is collected in a dual-phase polling loop — basic velocity metrics at 24h, deep behavioral metrics at 72h — validated against schema, and persisted for downstream analysis.
 **Depends on**: Phase 5 (needs published videos to collect analytics)
 **Requirements**: ANALYTICS-01, ANALYTICS-02, ANALYTICS-06
 **Success Criteria** (what must be TRUE):
-  1. Analytics collection enforces 24-hour minimum delay between video publish time and first data fetch
-  2. Each video's analytics entry is stored as JSONL with schema-validated fields (views, watch time, CTR, retention, etc.)
-  3. Aggregate functions in `analytics/insights.py` compile metrics across channels: averages, trends, and comparative rankings
+  1. Basic public metrics (view count) polled 24 hours post-publish to assess initial velocity
+  2. Deep analytical metrics (CTR, AVD, audience retention) exclusively polled after a mandatory 72-hour delay since video's public publish timestamp — YouTube Analytics API requires 48-72h to stabilize retention data
+  3. Each video's analytics entry stored as JSONL with schema-validated fields split by tier (basic at 24h, full at 72h)
+  4. Aggregate functions in `analytics/insights.py` compile metrics across channels: averages, trends, and comparative rankings
 **Plans**: TBD
 
 ### Phase 7: Brain Evolution Loop
@@ -132,16 +136,27 @@
   6. Unused commented-out Pillow/matplotlib dependencies are removed or moved to optional extras groups
 **Plans**: TBD
 
-### Phase 10: Video Rendering
-**Goal**: Complete videos are rendered from audio, captions, and visual assets via single-pass FFmpeg composition with multi-format output support.
+### Phase 10: Video Rendering (Two-Pass Hybrid)
+**Goal**: Complete videos are rendered via a two-pass hybrid chain — HyperFrames Puppeteer rasterization of DOM/SVG animations piped into FFmpeg for final composition with multi-format output.
 **Depends on**: Phase 1 (checkpoints for render artifacts), Phase 8 (aligned audio output), Phase 9 (visual assets output)
 **Requirements**: PROD-RENDER-01, PROD-RENDER-02, PROD-RENDER-03, PROD-RENDER-04, PROD-RENDER-05
 **Success Criteria** (what must be TRUE):
-  1. FFmpeg compositor produces a complete video using a single `filter_complex` invocation (no intermediate files on disk)
-  2. Render supports 16:9 long-form, 9:16 Shorts, and 1:1 Instagram output formats from the same source assets
-  3. Final video includes TTS audio track, time-synced word-level captions, and visual assets (B-roll, images, SFX) in correct sequence
-  4. Scene template renderer supports text overlays, transitions between scenes, and configurable visual styling
-  5. Render configuration (resolution, format, templates, quality presets) reads from per-channel `channel_config.json`
+  1. **Pass 1 — Visual Rasterization**: HyperFrames runs Puppeteer inside a headless shell to rasterize DOM/SVG character animations and CSS keyframes frame-by-frame, piping raw frames into FFmpeg
+  2. **Pass 2 — FFmpeg Composition**: FFmpeg accepts the incoming visual frame stream, overlays the synced TTS audio track, and packages into target format container
+  3. Render supports 16:9 long-form, 9:16 Shorts, and 1:1 Instagram output formats from the same source assets
+  4. Final video includes TTS audio track, time-synced word-level captions, HyperFrames scene animations (stickman explainers, dynamic charts), and visual assets (B-roll, images, SFX)
+  5. Scene template renderer supports text overlays, transitions between scenes, and configurable visual styling via HyperFrames HTML/CSS blueprints
+  6. Render configuration (resolution, format, templates, quality presets) reads from per-channel `channel_config.json`
+**Plans**: TBD
+
+### Phase 11: Agent Documentation
+**Goal**: Full pipeline workflow is documented in agent-facing markdown files (AGENTS.md, process-specific guides) so any AI CLI (OpenCode, Claude Code, Codex) can autonomously orchestrate the CreatorForge pipeline from discovery through publishing.
+**Depends on**: Phase 10 (need complete pipeline before documenting it)
+**Requirements**: DOC-01, DOC-02
+**Success Criteria** (what must be TRUE):
+  1. `AGENTS.md` (or equivalent for OpenCode) at project root describes the full pipeline workflow: discover → angle → script → produce → publish → analyze → learn
+  2. Process-specific markdown files in `.agents/docs/` describe each stage in detail: input contracts, output artifacts, available commands, error recovery procedures
+  3. A CLI tool or agent can follow the documentation to autonomously run the full pipeline end-to-end without human intervention
 **Plans**: TBD
 
 ---
@@ -159,7 +174,9 @@ Phase 1 (Foundation & Pipeline)
   ├── Phase 8 (Audio Production) ──┐
   ├── Phase 9 (Visual Pipeline) ───┤
   │                                │
-  └── Phase 10 (Video Rendering) ←─┘
+  ├── Phase 10 (Video Rendering) ←─┘
+  │
+  └── Phase 11 (Agent Documentation)
 ```
 
 ---
@@ -177,7 +194,8 @@ Phase 1 (Foundation & Pipeline)
 | 7. Brain Evolution Loop | 0/– | Not started | - |
 | 8. Audio Production | 0/– | Not started | - |
 | 9. Visual Asset Pipeline | 0/– | Not started | - |
-| 10. Video Rendering | 0/– | Not started | - |
+| 10. Video Rendering (Two-Pass Hybrid) | 0/– | Not started | - |
+| 11. Agent Documentation | 0/– | Not started | - |
 
 ---
 
@@ -188,14 +206,16 @@ Phase 1 (Foundation & Pipeline)
 | PIPE (Pipeline Infrastructure) | 6 | Phase 1 | 6/6 ✓ |
 | SEC (Security & Packaging) | 8 | Phase 2 | 8/8 ✓ |
 | TEST (Test Infrastructure) | 10 | Phases 3-4 | 10/10 ✓ |
-| PUBLISH (YouTube Publishing) | 7 | Phase 5 | 7/7 ✓ |
+| PUBLISH (YouTube Publishing) | 8 | Phase 5 | 8/8 ✓ |
 | ANALYTICS (Analytics & Brain) | 7 | Phases 6-7 | 7/7 ✓ |
 | PROD-AUDIO (Audio Production) | 4 | Phase 8 | 4/4 ✓ |
 | PROD-VISUAL (Visual Assets) | 6 | Phase 9 | 6/6 ✓ |
 | PROD-RENDER (Video Rendering) | 5 | Phase 10 | 5/5 ✓ |
-| **Total** | **52** | **10 phases** | **52/52 ✓** |
+| DOC (Agent Documentation) | 2 | Phase 11 | 2/2 ✓ |
+| **Total** | **56** | **11 phases** | **56/56 ✓** |
 
 ---
 
 *Created: 2026-07-10*
 *Granularity: fine*
+*Revised: 2026-07-10 — added dual-credential partitioning (Phase 5), 72h analytics polling (Phase 6), Puppeteer two-pass rendering (Phase 10), Agent Documentation (Phase 11)*
