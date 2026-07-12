@@ -13,6 +13,7 @@ Usage:
 
 import uuid
 import time
+import logging
 from pathlib import Path
 from datetime import datetime, timezone
 from dataclasses import dataclass, field, asdict
@@ -20,6 +21,8 @@ from typing import Any, Optional, Callable, Protocol
 
 from agent_core.core.checkpoint import CheckpointManager
 from agent_core.core.validation import validate_or_raise
+
+logger = logging.getLogger(__name__)
 
 
 class StageFn(Protocol):
@@ -150,6 +153,11 @@ class PipelineOrchestrator:
                 stage_input = dict(input_config)
                 for dep in stage.depends_on:
                     if dep in result.stage_outputs:
+                        if dep in input_config:
+                            logger.warning(
+                                "Dependency '%s' output shadows input config key in stage '%s'",
+                                dep, stage_name,
+                            )
                         stage_input[dep] = result.stage_outputs[dep]
 
                 start = time.monotonic()
