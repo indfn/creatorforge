@@ -76,13 +76,13 @@ class QuotaBudget:
                         data = json.load(f)
                     finally:
                         portalocker.unlock(f)
-            try:
-                validate_or_raise(data, "quota-budget.schema.json")
-                if data.get("date") == today:
-                    return data
-                return self._reset_for_new_day(data)
-            except (json.JSONDecodeError, ValueError):
-                pass
+                try:
+                    validate_or_raise(data, "quota-budget.schema.json")
+                    if data.get("date") == today:
+                        return data
+                    return self._reset_for_new_day(data)
+                except (json.JSONDecodeError, ValueError):
+                    pass
 
         return self._fresh_state(today)
 
