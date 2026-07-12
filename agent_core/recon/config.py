@@ -7,16 +7,63 @@ Credentials loaded from .env (project root). Legacy .credentials file as fallbac
 import os
 import json
 from pathlib import Path
+import stat
 from typing import Optional, Dict, List
 from dataclasses import dataclass
+from cryptography.fernet import Fernet
+from cryptography.fernet import InvalidToken
 
 
-PIPELINE_DIR = Path(__file__).parent.parent
+PIPELINE_DIR = Path(__file__).parent.parent.parent
 DATA_DIR = PIPELINE_DIR / "data"
 RECON_DATA_DIR = DATA_DIR / "recon"
 CREDENTIALS_FILE = RECON_DATA_DIR / ".credentials"
 BRAIN_FILE = DATA_DIR / "agent-brain.json"
 ENV_FILE = PIPELINE_DIR / ".env"
+CREDENTIALS_KEY_DIR = Path.home() / ".creatorforge"
+CREDENTIALS_KEY_FILE = CREDENTIALS_KEY_DIR / "credentials.key"
+
+
+def _get_encryption_key() -> bytes:
+    """Get the Fernet encryption key for credential storage.
+
+    Priority:
+    1. CREDENTIALS_ENCRYPTION_KEY environment variable
+    2. ~/.creatorforge/credentials.key file (created on first use)
+    3. Auto-generate and persist to ~/.creatorforge/credentials.key
+    """
+    env_key = os.environ.get("CREDENTIALS_ENCRYPTION_KEY")
+    if env_key:
+        return env_key.encode("utf-8")
+
+    if CREDENTIALS_KEY_FILE.exists():
+        return CREDENTIALS_KEY_FILE.read_bytes()
+
+    # Generate a new key on first use
+    key = Fernet.generate_key()
+    CREDENTIALS_KEY_DIR.mkdir(parents=True, exist_ok=True)
+    CREDENTIALS_KEY_FILE.write_bytes(key)
+    CREDENTIALS_KEY_FILE.chmod(0o600)
+    return key
+
+
+def _encrypt_credentials(creds: Dict[str, str]) -> bytes:
+    """Encrypt credentials dict as JSON with Fernet."""
+    key = _get_encryption_key()
+    fernet = Fernet(key)
+    plaintext = json.dumps(creds, ensure_ascii=False, indent=2).encode("utf-8")
+    return fernet.encrypt(plaintext)
+
+
+def _decrypt_credentials(data: bytes) -> Optional[Dict[str, str]]:
+    """Decrypt Fernet-encrypted credentials. Returns None if decryption fails."""
+    try:
+        key = _get_encryption_key()
+        fernet = Fernet(key)
+        plaintext = fernet.decrypt(data)
+        return json.loads(plaintext.decode("utf-8"))
+    except (InvalidToken, Exception):
+        return None
 
 
 def _load_env_file(path: Path) -> Dict[str, str]:
@@ -101,15 +148,20 @@ def load_credentials() -> Dict[str, str]:
     # Load .env from project root
     env_vars = _load_env_file(ENV_FILE)
 
-    # Load .credentials as fallback
+    # Load .credentials — try encrypted (Fernet) first, fall back to legacy plaintext
     if CREDENTIALS_FILE.exists():
-        with open(CREDENTIALS_FILE, 'r') as f:
-            for line in f:
+        raw = CREDENTIALS_FILE.read_bytes()
+        decrypted = _decrypt_credentials(raw)
+        if decrypted is not None:
+            creds.update(decrypted)
+        else:
+            # Legacy plaintext fallback
+            for line in raw.decode("utf-8").splitlines():
                 line = line.strip()
                 if '=' in line and not line.startswith('#'):
-                    key, value = line.split('=', 1)
-                    if key.strip() not in creds:
-                        creds[key.strip()] = value.strip()
+                    k, v = line.split('=', 1)
+                    if k.strip() not in creds:
+                        creds[k.strip()] = v.strip()
 
     # Override with .env file values
     creds.update(env_vars)
@@ -138,12 +190,11 @@ def load_credentials() -> Dict[str, str]:
 
 
 def save_credentials(creds: Dict[str, str]):
-    """Save credentials to .credentials file."""
+    """Save credentials to .credentials file (encrypted with Fernet, 0600 perms)."""
     RECON_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    with open(CREDENTIALS_FILE, 'w') as f:
-        f.write("# Recon credentials — DO NOT COMMIT\n")
-        for key, value in creds.items():
-            f.write(f"{key}={value}\n")
+    encrypted = _encrypt_credentials(creds)
+    CREDENTIALS_FILE.write_bytes(encrypted)
+    CREDENTIALS_FILE.chmod(0o600)
 
 
 def load_config() -> ReconConfig:
