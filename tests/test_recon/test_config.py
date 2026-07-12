@@ -362,12 +362,17 @@ class TestLoadCredentials:
         self._setup_encryption(monkeypatch, tmp_path)
         monkeypatch.setattr(config, "CREDENTIALS_FILE", tmp_path / ".credentials")
         monkeypatch.setattr(config, "ENV_FILE", tmp_path / ".env")
-        # No files, no env vars beyond CREDENTIALS_ENCRYPTION_KEY
+        # Clear all credential env vars to prevent developer env leakage
+        for env_var in [
+            "IG_USERNAME", "IG_PASSWORD", "LLM_API_KEY",
+            "TRANSCRIBE_API_KEY", "OPENAI_API_KEY", "LLM_BASE_URL",
+            "LLM_MODEL", "TRANSCRIBE_BASE_URL", "TRANSCRIBE_MODEL",
+            "TRANSCRIBE_PROVIDER", "WHISPER_MODEL",
+        ]:
+            monkeypatch.delenv(env_var, raising=False)
 
         result = config.load_credentials()
-        # May include env vars set in environment, but at minimum we verify
-        # no credential-specific values are present
-        assert isinstance(result, dict)
+        assert result == {}
 
     def test_plaintext_migration_transparent(self, monkeypatch, tmp_path):
         """Plaintext read → encrypted save → decrypted reload returns same values."""
