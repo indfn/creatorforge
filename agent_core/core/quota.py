@@ -87,15 +87,23 @@ class QuotaBudget:
         return self._fresh_state(today)
 
     def _fresh_state(self, today: str) -> dict:
+        """Initialize fresh state from defaults.json, falling back to hardcoded defaults."""
+        try:
+            with open(DEFAULT_QUOTA_FILE, "r") as f:
+                default_budgets = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            default_budgets = DEFAULT_BUDGETS
+
         budgets = {}
-        for name, cfg in DEFAULT_BUDGETS.items():
-            budgets[name] = {
-                "daily_limit": cfg["daily_limit"],
-                "consumed": 0,
-                "remaining": cfg["daily_limit"],
-                "last_reset": datetime.now(timezone.utc).isoformat(),
-                "description": cfg.get("description", ""),
-            }
+        for name, cfg in default_budgets.items():
+            if isinstance(cfg, dict) and "daily_limit" in cfg:
+                budgets[name] = {
+                    "daily_limit": cfg["daily_limit"],
+                    "consumed": 0,
+                    "remaining": cfg["daily_limit"],
+                    "last_reset": datetime.now(timezone.utc).isoformat(),
+                    "description": cfg.get("description", ""),
+                }
         return {"budgets": budgets, "date": today, "version": 1}
 
     def _reset_for_new_day(self, old_state: dict) -> dict:
