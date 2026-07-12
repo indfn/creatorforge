@@ -48,7 +48,6 @@ def skeleton_to_topic(
     topic_index: int,
     date_str: str,
     pillars: List[str],
-    weights: Dict[str, float],
 ) -> Dict:
     """
     Convert a single skeleton into a topic dict matching topic.schema.json.
@@ -177,7 +176,6 @@ def generate_topics_from_skeletons(
             topic_index=start_index + i,
             date_str=date_str,
             pillars=pillars,
-            weights=weights,
         )
         topics.append(topic)
 
