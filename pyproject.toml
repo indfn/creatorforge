@@ -24,6 +24,39 @@ dependencies = [
 [tool.setuptools.packages.find]
 include = ["agent_core*", "production*", "scripts*"]
 
+[project.optional-dependencies]
+test = ["pytest>=7.0.0", "pytest-cov>=5.0.0"]
+
 [project.scripts]
 creatorforge-recon = "agent_core.recon.web.app:main"
 creatorforge-tts = "production.AudioGeneration.tts_generation:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+pythonpath = ["."]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests that hit external APIs",
+    "online: marks tests needing network access",
+]
+
+[tool.coverage.run]
+source = ["agent_core"]
+omit = [
+    "*.venv/*",
+    "*/tests/*",
+    "*/production/*",
+    "*/scripts/*",
+    "*/setup.py",
+]
+relative_files = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]
