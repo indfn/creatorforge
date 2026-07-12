@@ -12,7 +12,7 @@ import json
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 from agent_core.scoring.engine import load_brain_context, score_icp_relevance, score_content_gap, score_proof_potential, apply_competitor_bonuses, calculate_weighted_total
 
