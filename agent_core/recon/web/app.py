@@ -4,6 +4,7 @@ Stripped from ReelRecon: removed TikTok, cookies, updater.
 Added: competitor-first workflow, agent-brain integration, bridge to discover.
 """
 
+import argparse
 import os
 import json
 import uuid
@@ -370,12 +371,24 @@ def api_get_providers():
 
 def main():
     """Launch the Recon UI."""
+    parser = argparse.ArgumentParser(description="CreatorForge Recon Intelligence UI")
+    parser.add_argument("--debug", action="store_true", default=False,
+                        help="Run Flask in debug mode (development only)")
+    parser.add_argument("--host", type=str, default="127.0.0.1",
+                        help="Bind address (default: 127.0.0.1). Use 0.0.0.0 for LAN access.")
+    parser.add_argument("--port", type=int, default=5001,
+                        help="Port number (default: 5001)")
+    args = parser.parse_args()
+
+    host_display = "localhost" if args.host == "127.0.0.1" else args.host
     print("\n" + "=" * 50)
     print("  CREATORFORGE — Recon Intelligence")
-    print("  http://localhost:5001")
+    print(f"  http://{host_display}:{args.port}")
+    if args.debug:
+        print("  ⚠  DEBUG MODE — do not use in production")
     print("=" * 50 + "\n")
 
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host=args.host, port=args.port, debug=args.debug)
 
 
 if __name__ == '__main__':
