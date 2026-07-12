@@ -1,0 +1,10 @@
+{
+  "$schema": "../../schemas/quota-budget.schema.json#/properties/budgets",
+  "youtube_data": { "daily_limit": 10000, "description": "YouTube Data API v3 — 10,000 units/day default quota" },
+  "youtube_upload": { "daily_limit": 6, "description": "~6 uploads/day (1,600 units each)" },
+  "youtube_analytics": { "daily_limit": 500, "description": "YouTube Analytics API" },
+  "gemini_tts": { "daily_limit": 1500, "description": "Gemini TTS API calls" },
+  "pexels": { "daily_limit": 200, "description": "Pexels photo/video API" },
+  "pixabay": { "daily_limit": 5000, "description": "Pixabay image API" },
+  "freesound": { "daily_limit": 500, "description": "Freesound SFX API" }
+}
