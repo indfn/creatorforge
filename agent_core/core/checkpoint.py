@@ -100,28 +100,6 @@ class CheckpointManager:
         pipeline_id: str,
         scene_id: Optional[str] = None,
     ) -> Optional[Checkpoint]:
-        path = self._checkpoint_path(pipeline_id, stage, scene_id)
-        tmp_path = path.with_suffix(".tmp")
-
-        with self._file_lock:
-            with open(tmp_path, "w") as f:
-                portalocker.lock(f, portalocker.LOCK_EX)
-                try:
-                    json.dump(asdict(checkpoint), f, indent=2, default=str)
-                    f.flush()
-                    os.fsync(f.fileno())
-                finally:
-                    portalocker.unlock(f)
-            tmp_path.rename(path)
-
-        return checkpoint
-
-    def load_checkpoint(
-        self,
-        stage: str,
-        pipeline_id: str,
-        scene_id: Optional[str] = None,
-    ) -> Optional[Checkpoint]:
         """Load checkpoint if it exists."""
         path = self._checkpoint_path(pipeline_id, stage, scene_id)
         if not path.exists():
