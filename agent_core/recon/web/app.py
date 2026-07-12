@@ -50,6 +50,13 @@ init_db()
 # Active jobs tracking
 active_jobs = {}
 
+# Whitelist of allowed settings keys (SEC-04)
+SETTINGS_WHITELIST = frozenset({
+    "ig_username", "ig_password", "openai_api_key", "llm_api_key",
+    "llm_base_url", "llm_model", "transcribe_base_url", "transcribe_model",
+    "transcribe_provider",
+})
+
 
 # =============================================================================
 # ROUTES — Pages
@@ -344,19 +351,50 @@ def api_get_settings():
 
 @app.route('/api/settings', methods=['POST'])
 def api_save_settings():
-    """Save credentials and settings."""
+    """Save credentials and settings. Whitelisted keys only, values validated."""
     data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
     creds = load_credentials()
+    rejected = []
+    validated = {}
 
-    # Update only provided fields
-    for key in ["ig_username", "ig_password", "openai_api_key", "llm_api_key",
-                "llm_base_url", "llm_model", "transcribe_base_url", "transcribe_model",
-                "transcribe_provider"]:
-        if key in data and data[key]:
-            creds[key] = data[key]
+    for key, value in data.items():
+        # Reject keys not in whitelist
+        if key not in SETTINGS_WHITELIST:
+            rejected.append(key)
+            continue
 
+        # Validate non-empty for credential-type keys
+        if not isinstance(value, str) or not value.strip():
+            continue
+
+        value = value.strip()
+
+        # URL validation for *_base_url keys
+        if key.endswith("_base_url"):
+            if not (value.startswith("http://") or value.startswith("https://")):
+                rejected.append(f"{key} (invalid URL)")
+                continue
+
+        # Provider validation
+        if key == "transcribe_provider":
+            if value not in ("openai", "local"):
+                rejected.append(f"{key} (must be 'openai' or 'local')")
+                continue
+
+        validated[key] = value
+
+    # Update only the validated subset
+    creds.update(validated)
     save_credentials(creds)
-    return jsonify({"success": True, "message": "Settings saved"})
+
+    response = {"success": True, "message": f"Saved {len(validated)} setting(s)"}
+    if rejected:
+        response["warning"] = f"Rejected {len(rejected)} invalid key(s): {', '.join(rejected)}"
+
+    return jsonify(response)
 
 
 @app.route('/api/providers')
