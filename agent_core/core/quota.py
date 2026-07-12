@@ -5,10 +5,13 @@ All quota-aware pipeline stages call consume() before making API requests.
 
 import json
 import os
+import threading
 from pathlib import Path
 from datetime import date, datetime, timezone
 from dataclasses import dataclass, field, asdict
 from typing import Optional
+
+import portalocker
 
 from agent_core.core.validation import validate_or_raise
 
@@ -59,14 +62,21 @@ class QuotaBudget:
     def __init__(self, budgets_file: Optional[Path] = None):
         self.budgets_file = budgets_file or QUOTA_FILE
         self.budgets_file.parent.mkdir(parents=True, exist_ok=True)
+        self._lock = threading.Lock()
         self._state = self._load_or_init()
 
     def _load_or_init(self) -> dict:
+        """Load persisted state or initialize fresh for today."""
         today = date.today().isoformat()
         if self.budgets_file.exists():
-            try:
+            with self._lock:
                 with open(self.budgets_file, "r") as f:
-                    data = json.load(f)
+                    portalocker.lock(f, portalocker.LOCK_SH)
+                    try:
+                        data = json.load(f)
+                    finally:
+                        portalocker.unlock(f)
+            try:
                 validate_or_raise(data, "quota-budget.schema.json")
                 if data.get("date") == today:
                     return data
@@ -103,10 +113,18 @@ class QuotaBudget:
         return {"budgets": budgets, "date": today, "version": 1}
 
     def _persist(self):
+        """Write state to disk atomically with file locking."""
         tmp = self.budgets_file.with_suffix(".tmp")
-        with open(tmp, "w") as f:
-            json.dump(self._state, f, indent=2)
-        tmp.rename(self.budgets_file)
+        with self._lock:
+            with open(tmp, "w") as f:
+                portalocker.lock(f, portalocker.LOCK_EX)
+                try:
+                    json.dump(self._state, f, indent=2)
+                    f.flush()
+                    os.fsync(f.fileno())
+                finally:
+                    portalocker.unlock(f)
+            tmp.rename(self.budgets_file)
 
     def can_consume(self, budget_name: str, amount: int = 1) -> bool:
         entry = self._state["budgets"].get(budget_name)

@@ -5,10 +5,14 @@ for pipeline stage artifacts. Supports scene-level granularity.
 
 import json
 import hashlib
+import os
+import threading
 from pathlib import Path
 from datetime import datetime, timezone
 from dataclasses import dataclass, field, asdict
 from typing import Any, Optional
+
+import portalocker
 
 from agent_core.core.validation import validate_output, validate_or_raise
 
@@ -31,11 +35,13 @@ class Checkpoint:
 
 class CheckpointManager:
     """
-    Manages pipeline checkpoints with schema validation.
+    Manages pipeline checkpoints with schema validation and file locking.
 
     Checkpoints stored at: data/checkpoints/{pipeline_id}/{stage_name}.json
     Scene-level: data/checkpoints/{pipeline_id}/{stage_name}/scene_{XX}.json
     """
+
+    _file_lock = threading.Lock()
 
     def __init__(self, base_dir: Optional[Path] = None):
         self.base_dir = base_dir or CHECKPOINTS_DIR
@@ -95,10 +101,38 @@ class CheckpointManager:
         scene_id: Optional[str] = None,
     ) -> Optional[Checkpoint]:
         path = self._checkpoint_path(pipeline_id, stage, scene_id)
+        tmp_path = path.with_suffix(".tmp")
+
+        with self._file_lock:
+            with open(tmp_path, "w") as f:
+                portalocker.lock(f, portalocker.LOCK_EX)
+                try:
+                    json.dump(asdict(checkpoint), f, indent=2, default=str)
+                    f.flush()
+                    os.fsync(f.fileno())
+                finally:
+                    portalocker.unlock(f)
+            tmp_path.rename(path)
+
+        return checkpoint
+
+    def load_checkpoint(
+        self,
+        stage: str,
+        pipeline_id: str,
+        scene_id: Optional[str] = None,
+    ) -> Optional[Checkpoint]:
+        """Load checkpoint if it exists."""
+        path = self._checkpoint_path(pipeline_id, stage, scene_id)
         if not path.exists():
             return None
-        with open(path, "r") as f:
-            data = json.load(f)
+        with self._file_lock:
+            with open(path, "r") as f:
+                portalocker.lock(f, portalocker.LOCK_SH)
+                try:
+                    data = json.load(f)
+                finally:
+                    portalocker.unlock(f)
         return Checkpoint(**data)
 
     def is_completed(
@@ -114,6 +148,49 @@ class CheckpointManager:
         if config is not None and cp.content_hash != self._compute_hash(config):
             return False
         return True
+
+    def save_scene_checkpoint(
+        self,
+        pipeline_id: str,
+        stage: str,
+        scene_id: str,
+        status: str,
+        output: Any = None,
+        output_schema: Optional[str] = None,
+        config: Optional[dict] = None,
+        error: Optional[str] = None,
+    ) -> Checkpoint:
+        """Convenience wrapper for scene-level checkpointing."""
+        return self.save_checkpoint(
+            stage=stage,
+            pipeline_id=pipeline_id,
+            scene_id=scene_id,
+            status=status,
+            output=output,
+            output_schema=output_schema,
+            config=config,
+            error=error,
+        )
+
+    def get_scene_status(
+        self,
+        pipeline_id: str,
+        stage: str,
+        scene_ids: list[str],
+        config: Optional[dict] = None,
+    ) -> dict[str, str]:
+        """
+        Get status of multiple scenes at once.
+        Returns dict of {scene_id: "completed"|"pending"|"failed"}.
+        """
+        result = {}
+        for sid in scene_ids:
+            if self.is_completed(stage, pipeline_id, scene_id=sid, config=config):
+                result[sid] = "completed"
+            else:
+                cp = self.load_checkpoint(stage, pipeline_id, scene_id=sid)
+                result[sid] = cp.status if cp and cp.status == "failed" else "pending"
+        return result
 
     def clear_pipeline(self, pipeline_id: str):
         path = self.base_dir / pipeline_id
