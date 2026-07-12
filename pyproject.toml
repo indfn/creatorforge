@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "creatorforge"
+version = "0.1.0"
+description = "AI-powered content creation suite"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=2.0.0",
+    "requests>=2.25.0",
+    "yt-dlp>=2023.0.0",
+    "reportlab>=4.0.0",
+    "google-api-python-client>=2.0.0",
+    "google-auth-oauthlib>=1.0.0",
+    "google-auth>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "jsonschema>=4.20.0",
+    "portalocker>=2.8.2",
+    "cryptography>=41.0.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["agent_core*", "production*", "scripts*"]
+
+[project.scripts]
+creatorforge-recon = "agent_core.recon.web.app:main"
+creatorforge-tts = "production.AudioGeneration.tts_generation:main"
