@@ -70,11 +70,11 @@ Plans:
    4. Bridge module tests cover skeleton-to-topic conversion, pillar matching, and engagement extraction from varied formats
    5. Database model tests cover CRUD operations for Asset and Collection with type validation and error cases
    6. Config/credential loading tests cover environment variable cascade (env → .env → .credentials) and credential masking
-**Plans**: 6 plans / 1 complete
+**Plans**: 6 plans / 2 complete
 
 Plans:
 - [x] 03-01-PLAN.md — pytest setup + conftest.py (TEST-01)
-- [ ] 03-02-PLAN.md — Scoring engine unit tests (TEST-02)
+- [x] 03-02-PLAN.md — Scoring engine unit tests (TEST-02)
 - [ ] 03-03-PLAN.md — Config/credential loading tests (TEST-06)
 - [ ] 03-04-PLAN.md — Bridge module tests (TEST-04)
 - [ ] 03-05-PLAN.md — Database model tests (TEST-05)
