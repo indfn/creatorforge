@@ -11,7 +11,6 @@ import stat
 from typing import Optional, Dict, List
 from dataclasses import dataclass
 from cryptography.fernet import Fernet
-from cryptography.fernet import InvalidToken
 
 
 PIPELINE_DIR = Path(__file__).parent.parent.parent
@@ -62,7 +61,7 @@ def _decrypt_credentials(data: bytes) -> Optional[Dict[str, str]]:
         fernet = Fernet(key)
         plaintext = fernet.decrypt(data)
         return json.loads(plaintext.decode("utf-8"))
-    except (InvalidToken, Exception):
+    except Exception:
         return None
 
 
