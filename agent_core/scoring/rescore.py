@@ -12,11 +12,9 @@ import json
 import sys
 from pathlib import Path
 
-# Add project root to path so scoring imports work
 PROJECT_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
 
-from scoring.engine import load_brain_context, score_icp_relevance, score_content_gap, score_proof_potential, apply_competitor_bonuses, calculate_weighted_total
+from agent_core.scoring.engine import load_brain_context, score_icp_relevance, score_content_gap, score_proof_potential, apply_competitor_bonuses, calculate_weighted_total
 
 
 def find_latest_topics_file() -> Path:

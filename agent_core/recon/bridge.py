@@ -6,21 +6,17 @@ This is the key integration point: competitor analysis → scored topics.
 """
 
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 
-from recon.config import load_competitors, BRAIN_FILE
-from recon.utils.logger import get_logger
-
-# Add project root to path for scoring imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from scoring.engine import score_topic as engine_score_topic
+from agent_core.recon.config import load_competitors, BRAIN_FILE
+from agent_core.recon.utils.logger import get_logger
+from agent_core.scoring.engine import score_topic as engine_score_topic
 
 logger = get_logger()
 
-PIPELINE_DIR = Path(__file__).parent.parent
+PIPELINE_DIR = Path(__file__).parent.parent.parent
 DATA_DIR = PIPELINE_DIR / "data"
 RECON_DATA_DIR = DATA_DIR / "recon"
 TOPICS_DIR = DATA_DIR / "topics"

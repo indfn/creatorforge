@@ -1,5 +1,5 @@
 """
-Recon UI — Flask-based competitor intelligence dashboard for Viral Command.
+Recon UI — Flask-based competitor intelligence dashboard for CreatorForge.
 Stripped from ReelRecon: removed TikTok, cookies, updater.
 Added: competitor-first workflow, agent-brain integration, bridge to discover.
 """
@@ -15,20 +15,17 @@ from typing import Optional
 
 from flask import Flask, render_template, request, jsonify
 
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from recon.config import load_config, load_competitors, save_credentials, load_credentials
-from recon.scraper.instagram import InstaClient
-from recon.scraper.youtube import get_channel_videos, save_channel_data
-from recon.scraper.downloader import transcribe_video, WHISPER_AVAILABLE
-from recon.skeleton_ripper import (
+from agent_core.recon.config import load_config, load_competitors, save_credentials, load_credentials
+from agent_core.recon.scraper.instagram import InstaClient
+from agent_core.recon.scraper.youtube import get_channel_videos, save_channel_data
+from agent_core.recon.scraper.downloader import transcribe_video, WHISPER_AVAILABLE
+from agent_core.recon.skeleton_ripper import (
     SkeletonRipperPipeline, create_job_config, JobProgress, JobStatus,
     get_available_providers
 )
-from recon.bridge import generate_topics_from_skeletons, save_topics_jsonl, load_latest_skeletons
-from recon.storage.database import init_db
-from recon.utils.logger import get_logger
+from agent_core.recon.bridge import generate_topics_from_skeletons, save_topics_jsonl, load_latest_skeletons
+from agent_core.recon.storage.database import init_db
+from agent_core.recon.utils.logger import get_logger
 
 logger = get_logger()
 
@@ -374,7 +371,7 @@ def api_get_providers():
 def main():
     """Launch the Recon UI."""
     print("\n" + "=" * 50)
-    print("  VIRAL COMMAND — Recon Intelligence")
+    print("  CREATORFORGE — Recon Intelligence")
     print("  http://localhost:5001")
     print("=" * 50 + "\n")
 
