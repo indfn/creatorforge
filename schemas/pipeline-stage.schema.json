@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pipeline Stage",
+  "description": "A single stage in a pipeline DAG — defines its name, input contract, output contract, and dependencies",
+  "type": "object",
+  "required": ["name", "output_schema", "depends_on"],
+  "properties": {
+    "name": { "type": "string", "pattern": "^[a-z_]+$" },
+    "description": { "type": "string" },
+    "output_schema": { "type": "string", "description": "Filename in schemas/ that stage output must validate against" },
+    "depends_on": { "type": "array", "items": { "type": "string" }, "description": "Stage names that must complete before this one" },
+    "timeout_seconds": { "type": "integer", "default": 300 }
+  }
+}

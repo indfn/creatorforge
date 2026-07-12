@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pipeline Checkpoint",
+  "description": "Typed checkpoint artifact persisted between pipeline stages — enables resume",
+  "type": "object",
+  "required": ["stage", "pipeline_id", "status", "created_at", "content_hash"],
+  "properties": {
+    "stage": { "type": "string" },
+    "pipeline_id": { "type": "string" },
+    "scene_id": { "type": "string", "description": "Optional — scene-level sub-key for scene-granular checkpoints" },
+    "status": { "type": "string", "enum": ["completed", "failed", "running"] },
+    "output": { "type": ["object", "array", "null"], "description": "Validated stage output artifact" },
+    "output_schema": { "type": "string", "description": "Schema used for validation" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "content_hash": { "type": "string", "description": "SHA-256 of stage input config — detects stale checkpoints on config change" },
+    "error": { "type": "string" }
+  }
+}
