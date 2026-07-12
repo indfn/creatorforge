@@ -8,7 +8,7 @@ State persisted in data/recon/tracker-state.json.
 import json
 import os
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -73,7 +73,7 @@ def filter_new_content(handle: str, content_items: List[Dict], state: Dict) -> L
         state[handle] = {}
 
     seen = state[handle]
-    now = datetime.utcnow().isoformat() + "Z"
+    now = datetime.now(timezone.utc).isoformat()
     new_items = []
 
     for item in content_items:
@@ -108,7 +108,7 @@ def get_stale_competitors(max_age_hours: int = 24) -> List[str]:
 
     competitors = brain.get("competitors", [])
     state = load_state()
-    cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
     stale = []
 
     for comp in competitors:
@@ -124,7 +124,7 @@ def get_stale_competitors(max_age_hours: int = 24) -> List[str]:
         # Find the most recent entry
         latest = max(entries.values())
         try:
-            latest_dt = datetime.fromisoformat(latest.replace("Z", "+00:00")).replace(tzinfo=None)
+            latest_dt = datetime.fromisoformat(latest.replace("Z", "+00:00"))
             if latest_dt < cutoff:
                 stale.append(handle)
         except (ValueError, AttributeError):
@@ -142,14 +142,14 @@ def cleanup_old_entries(state: Optional[Dict] = None, max_age_days: int = 30) ->
     if state is None:
         state = load_state()
 
-    cutoff = datetime.utcnow() - timedelta(days=max_age_days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
     cleaned = {}
 
     for handle, entries in state.items():
         kept = {}
         for content_id, timestamp in entries.items():
             try:
-                entry_dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00")).replace(tzinfo=None)
+                entry_dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
                 if entry_dt >= cutoff:
                     kept[content_id] = timestamp
             except (ValueError, AttributeError):

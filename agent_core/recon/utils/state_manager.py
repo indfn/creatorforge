@@ -6,7 +6,7 @@ Simplified from ReelRecon's state_manager — stores state as JSON files.
 import json
 import os
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Dict, Any
 from enum import Enum
@@ -34,7 +34,7 @@ class StateManager:
 
     def save_job_state(self, job_id: str, state: Dict[str, Any]):
         path = self.state_dir / f"{job_id}.json"
-        state["updated_at"] = datetime.utcnow().isoformat()
+        state["updated_at"] = datetime.now(timezone.utc).isoformat()
         with self._lock:
             tmp = path.with_suffix(".tmp")
             with open(tmp, 'w', encoding='utf-8') as f:
