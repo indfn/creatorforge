@@ -7,7 +7,7 @@
 ## Phases
 
 - [x] **Phase 1: Foundation & Pipeline Infrastructure** — Build checkpoint system, quality gates, QuotaBudget service, and state management that every other phase depends on
-- [ ] **Phase 2: Security Hardening & Packaging** — Fix all known security vulnerabilities and properly package the project as a pip-installable module
+- [x] **Phase 2: Security Hardening & Packaging** — Fix all known security vulnerabilities and properly package the project as a pip-installable module ✓
 - [ ] **Phase 3: Test Framework & Core Unit Tests** — Set up pytest and write comprehensive unit tests for existing core logic modules
 - [ ] **Phase 4: CI Pipeline & Extended Tests** — Add schema validation tests, mock-based API tests, and GitHub Actions automation
 - [ ] **Phase 5: Channel Onboarding & Branding** — Link a YouTube channel via OAuth, set channel description/tags, upload avatar/banner/watermark, and configure default upload settings so the channel is ready for content
@@ -37,7 +37,8 @@
   5. State management supports separate credential loading for scraping projects (API Key) and channel publishing projects (OAuth 2.0)
   6. State files use file locking via `portalocker` to prevent concurrent access corruption
   7. In-memory `active_jobs` dict uses LRU eviction with a configurable maximum capacity
-**Plans**: TBD
+**Plans**: 3 plans
+**Completed**: 2026-07-12 — 3 plans, 7/7 PIPE requirements
 
 ### Phase 2: Security Hardening & Packaging
 **Goal**: All known security vulnerabilities are fixed and the project is properly packaged as a pip-installable module with zero `sys.path` hacks.
@@ -51,11 +52,12 @@
    5. Project installs via `pip install -e .` using `pyproject.toml`; zero `sys.path.insert` hacks remain
    6. Flask binds to `127.0.0.1` by default; `--host` flag enables explicit LAN access
 **Plans**: 3 plans
+**Completed**: 2026-07-12 — 3 plans, 8/8 SEC requirements
 
 Plans:
 - [x] 02-01-PLAN.md — Packaging + credential env vars + dead code removal
 - [x] 02-02-PLAN.md — Fernet credential encryption with 0600 perms
-- [ ] 02-03-PLAN.md — Flask hardening (debug/host/settings) + sys.path cleanup
+- [x] 02-03-PLAN.md — Flask hardening (debug/host/settings) + sys.path cleanup
 
 ### Phase 3: Test Framework & Core Unit Tests
 **Goal**: Core business logic modules (scoring engine, skeleton pipeline, bridge, storage, config) have comprehensive unit test coverage with pytest.

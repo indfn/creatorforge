@@ -20,7 +20,7 @@ progress:
 
 **Description:** AI-powered content creation suite for OpenCode/Claude Code. Publishes winning content by discovering competitor patterns, generating scripts, producing video, and learning from performance — all through agent commands.
 
-**Current Focus:** Phase 2 planned — 3 plans covering packaging (pyproject.toml), credential env vars, Fernet encryption, Flask hardening, settings API validation, and sys.path cleanup.
+**Current Focus:** Phase 2 complete. Project is pip-installable, credentials encrypted at rest, Flask hardened, zero sys.path hacks.
 
 ---
 
@@ -30,13 +30,13 @@ progress:
 |-------|-------|
 | **Milestone** | v1 |
 | **Current Phase** | 2 — Security Hardening & Packaging |
-| **Status** | In Progress |
-| **Progress** | Phase 2/12 (2/3 plans) |
+| **Status** | Complete |
+| **Progress** | Phase 2/12 |
 
 ```
 Phase 1:  [##########] 100% ✓
-Phase 2:  [######    ] 66%  In Progress (3 plans) ← Current
-Phase 3:  [          ] 0%
+Phase 2:  [##########] 100% ✓
+Phase 3:  [          ] 0%  ← Next
 Phase 4:  [          ] 0%
 Phase 5:  [          ] 0%
 Phase 6:  [          ] 0%
@@ -54,7 +54,7 @@ Phase 12: [          ] 0%
 
 | Metric | Value | Target |
 |--------|-------|--------|
-| Phases completed | 1/12 | 12/12 |
+| Phases completed | 2/12 | 12/12 |
 | Plans created | 6 | 24+ |
 | Requirements covered | 15/76 | 76/76 |
 
