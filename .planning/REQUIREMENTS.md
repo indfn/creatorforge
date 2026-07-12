@@ -36,6 +36,21 @@
 - [ ] **PUBLISH-06**: Generate/select thumbnail — auto-extract keyframe from video or flag for user-provided image
 - [ ] **PUBLISH-07**: Integrate publishing with channel config (`channels/{Name}/channel_config.json`)
 - [ ] **PUBLISH-08**: Implement dual-credential partitioning — scrapers use API-key-only project (Project A), uploads use channel-specific OAuth project (Project B) — so quota exhaustion from discovery never blocks publishing
+- [ ] **PUBLISH-09**: Assign video to playlist(s) during or after upload via PlaylistItems API
+- [ ] **PUBLISH-10**: Set full video metadata on upload: YouTube category, video language, recording date/location, made-for-kids flag, age restriction, license (standard vs CC), embed enabled/disabled, comments enabled/disabled
+- [ ] **PUBLISH-11**: Generate chapter markers in the video description from per-scene timestamps (scene_01, scene_02, ...)
+- [ ] **PUBLISH-12**: Pin a comment on the published video (e.g., timestamp links, CTA, pinned Q&A prompt)
+- [ ] **PUBLISH-13**: Update video metadata post-hoc after publish (title, description, tags, thumbnail, playlist assignment)
+
+### Channel Onboarding & Branding (CHANNEL)
+
+- [ ] **CHANNEL-01**: Complete OAuth 2.0 flow with offline access for channel management; token per channel with auto-refresh
+- [ ] **CHANNEL-02**: Set channel basic info via `channels.update` API (description, tags/keywords, country, default language)
+- [ ] **CHANNEL-03**: Upload channel profile picture (avatar) via API
+- [ ] **CHANNEL-04**: Upload channel banner image via API
+- [ ] **CHANNEL-05**: Set channel branding watermark (appears on embedded video player)
+- [ ] **CHANNEL-06**: Configure default video upload settings (visibility default, comment moderation defaults, license default, embed toggle)
+- [ ] **CHANNEL-07**: Persist all channel branding config to `channels/{Name}/channel_config.json`
 
 ### Analytics & Brain Evolution (ANALYTICS)
 
@@ -80,13 +95,13 @@
 
 ### Pipeline Infrastructure (PIPE)
 
-- [ ] **PIPE-01**: Implement checkpoint artifacts between all pipeline stages (typed, schema-validated)
-- [ ] **PIPE-02**: Implement resume-from-checkpoint on crash/restart
-- [ ] **PIPE-03**: Add schema validation as quality gates at every stage boundary
-- [ ] **PIPE-04**: Implement QuotaBudget as a shared service consumed by all quota-aware stages
-- [ ] **PIPE-05**: Add file locking (`portalocker`) to tracker and state files
-- [ ] **PIPE-06**: Cap in-memory `active_jobs` dict with LRU eviction
-- [ ] **PIPE-07**: Checkpoint system supports scene-level granularity — each scene's artifacts (audio, subtitles, rendered clip) checkpoint independently for resume
+- [x] **PIPE-01**: Implement checkpoint artifacts between all pipeline stages (typed, schema-validated)
+- [x] **PIPE-02**: Implement resume-from-checkpoint on crash/restart
+- [x] **PIPE-03**: Add schema validation as quality gates at every stage boundary
+- [x] **PIPE-04**: Implement QuotaBudget as a shared service consumed by all quota-aware stages
+- [x] **PIPE-05**: Add file locking (`portalocker`) to tracker and state files
+- [x] **PIPE-06**: Cap in-memory `active_jobs` dict with LRU eviction
+- [x] **PIPE-07**: Checkpoint system supports scene-level granularity — each scene's artifacts (audio, subtitles, rendered clip) checkpoint independently for resume
 
 ---
 
@@ -124,4 +139,4 @@ _(filled by roadmap)_
 
 ---
 
-*Last updated: 2026-07-10 — added PUBLISH-08 (dual-credential), ANALYTICS-03 (72h polling), PROD-RENDER-01 (two-pass hybrid), DOC-01/02 (agent documentation)*
+*Last updated: 2026-07-10 — added CHANNEL-01 through CHANNEL-07, PUBLISH-09 through PUBLISH-13, removed caption upload (subtitles burned into video via HyperFrames at render time)*
