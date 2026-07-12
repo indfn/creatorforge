@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in-progress
-last_updated: "2026-07-12T09:41:23.221Z"
+status: unknown
+last_updated: "2026-07-12T09:48:28.368Z"
 progress:
   total_phases: 12
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 4
-  percent: 67
+  completed_plans: 6
+  percent: 100
 ---
 
 # CreatorForge — Project State
@@ -31,11 +31,11 @@ progress:
 | **Milestone** | v1 |
 | **Current Phase** | 2 — Security Hardening & Packaging |
 | **Status** | In Progress |
-| **Progress** | Phase 2/12 (1/3 plans) |
+| **Progress** | Phase 2/12 (2/3 plans) |
 
 ```
 Phase 1:  [##########] 100% ✓
-Phase 2:  [###       ] 33%  In Progress (3 plans) ← Current
+Phase 2:  [######    ] 66%  In Progress (3 plans) ← Current
 Phase 3:  [          ] 0%
 Phase 4:  [          ] 0%
 Phase 5:  [          ] 0%
@@ -60,6 +60,8 @@ Phase 12: [          ] 0%
 
 ---
 | Phase 02 P01 | 5m | 3 tasks | 2 files |
+| Phase 02 P03 | 12m | 3 tasks | 3 files |
+| Phase 02 P02 | 12min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -76,12 +78,16 @@ Phase 12: [          ] 0%
 | 7 | Phase 10 = Video Rendering last | Requires both audio (Phase 8) and visual assets (Phase 9) as inputs |
 | 8 | PIPE-04 (QuotaBudget shared service) in Phase 1 | Foundation service; PUBLISH-03 (QuotaBudget for publishing) in Phase 5 consumes it |
 | 9 | Phase 2 split into 3 plans | 02-01: packaging + env vars + dead code; 02-02: Fernet encryption; 02-03: Flask hardening + sys.path cleanup |
+| 10 | Used frozenset for SETTINGS_WHITELIST | Immutable, hashable, clearly communicates it shouldn't be modified at runtime |
+| 11 | Rejected keys as warning, not error | Partial updates with valid keys still succeed |
+| 12 | Kept import sys in rescore.py | sys.argv and sys.exit() used throughout the file |
+| 13 | Empty/null values silently skipped in settings API | Preserves existing partial-update behavior |
 
 ### Active Todos
 
 - ✅ Plan 02-01: Packaging + env vars + dead code — COMPLETE
-- ⏳ Plan 02-02: Fernet credential encryption (next)
-- ⏳ Plan 02-03: Flask hardening + sys.path cleanup
+- ✅ Plan 02-02: Fernet credential encryption — COMPLETE
+- ⏳ Plan 02-03: Flask hardening + sys.path cleanup (next)
 
 ### Blockers
 

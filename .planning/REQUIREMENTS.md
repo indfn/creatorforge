@@ -4,14 +4,21 @@
 
 ### Security & Packaging (SEC)
 
-- [ ] **SEC-01**: Move hardcoded Gemini API key from `tts_generation.py` to `GEMINI_API_KEY` env var
-- [ ] **SEC-02**: Remove `debug=True` from Flask app; add `--debug` CLI flag
+- [x] **SEC-01
+**: Move hardcoded Gemini API key from `tts_generation.py` to `GEMINI_API_KEY` env var
+- [x] **SEC-02
+**: Remove `debug=True` from Flask app; add `--debug` CLI flag
 - [ ] **SEC-03**: Encrypt `data/recon/.credentials` file or use system keyring; restrict perms to 0600
-- [ ] **SEC-04**: Whitelist and validate allowed keys in settings API (`api_save_settings`)
-- [ ] **SEC-05**: Create `pyproject.toml` with proper Python packaging (dependencies, entry points)
-- [ ] **SEC-06**: Replace all `sys.path.insert(0, ...)` with proper package imports
-- [ ] **SEC-07**: Remove dead `transcribe_video_openai` wrapper from `downloader.py`
-- [ ] **SEC-08**: Restrict Flask to `127.0.0.1` by default; add `--host` flag for LAN access
+- [x] **SEC-04
+**: Whitelist and validate allowed keys in settings API (`api_save_settings`)
+- [x] **SEC-05
+**: Create `pyproject.toml` with proper Python packaging (dependencies, entry points)
+- [x] **SEC-06
+**: Replace all `sys.path.insert(0, ...)` with proper package imports
+- [x] **SEC-07
+**: Remove dead `transcribe_video_openai` wrapper from `downloader.py`
+- [x] **SEC-08
+**: Restrict Flask to `127.0.0.1` by default; add `--host` flag for LAN access
 
 ### Test Infrastructure (TEST)
 
