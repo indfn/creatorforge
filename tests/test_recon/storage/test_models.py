@@ -222,10 +222,16 @@ class TestAssetList:
 
     @pytest.fixture
     def three_assets(self, db):
-        """Seed three assets of mixed types and star status."""
-        a1 = models.Asset.create(type="report", title="Report A", starred=True)
+        """Seed three assets of mixed types and star status.
+
+        ``Asset.create()`` doesn't accept ``starred`` directly, so we
+        use ``update()`` after creation for starred assets.
+        """
+        a1 = models.Asset.create(type="report", title="Report A")
+        a1.update(starred=True)
         a2 = models.Asset.create(type="report", title="Report B")
-        a3 = models.Asset.create(type="video", title="Video A", starred=True)
+        a3 = models.Asset.create(type="video", title="Video A")
+        a3.update(starred=True)
         return a1, a2, a3
 
     def test_list_all_assets(self, three_assets):
