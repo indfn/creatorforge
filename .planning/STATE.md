@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-last_updated: "2026-07-12T09:48:28.368Z"
+last_updated: "2026-07-12T12:12:00.000Z"
 progress:
   total_phases: 12
   completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
-  percent: 100
+  total_plans: 12
+  completed_plans: 7
+  percent: 58
 ---
 
 # CreatorForge — Project State
@@ -20,7 +20,7 @@ progress:
 
 **Description:** AI-powered content creation suite for OpenCode/Claude Code. Publishes winning content by discovering competitor patterns, generating scripts, producing video, and learning from performance — all through agent commands.
 
-**Current Focus:** Phase 2 complete. Project is pip-installable, credentials encrypted at rest, Flask hardened, zero sys.path hacks.
+**Current Focus:** Phase 3 started — pytest framework with coverage config and shared conftest.py fixtures established.
 
 ---
 
@@ -29,14 +29,14 @@ progress:
 | Field | Value |
 |-------|-------|
 | **Milestone** | v1 |
-| **Current Phase** | 2 — Security Hardening & Packaging |
-| **Status** | Complete |
-| **Progress** | Phase 2/12 |
+| **Current Phase** | 3 — Test Framework & Core Unit Tests |
+| **Status** | In Progress (Plan 1/6) |
+| **Progress** | Phase 3/12 |
 
 ```
 Phase 1:  [##########] 100% ✓
 Phase 2:  [##########] 100% ✓
-Phase 3:  [          ] 0%  ← Next
+Phase 3:  [#####     ] 50%  ← In Progress
 Phase 4:  [          ] 0%
 Phase 5:  [          ] 0%
 Phase 6:  [          ] 0%
@@ -62,6 +62,7 @@ Phase 12: [          ] 0%
 | Phase 02 P01 | 5m | 3 tasks | 2 files |
 | Phase 02 P03 | 12m | 3 tasks | 3 files |
 | Phase 02 P02 | 12min | 1 tasks | 1 files |
+| Phase 03 P01 | 8 | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -82,12 +83,18 @@ Phase 12: [          ] 0%
 | 11 | Rejected keys as warning, not error | Partial updates with valid keys still succeed |
 | 12 | Kept import sys in rescore.py | sys.argv and sys.exit() used throughout the file |
 | 13 | Empty/null values silently skipped in settings API | Preserves existing partial-update behavior |
+| 14 | All pytest config in pyproject.toml — single source of truth | No pytest.ini or .coveragerc files needed |
+| 15 | Fixtures use tmp_path (built-in) instead of tempfile | pytest-managed cleanup, no orphaned temp dirs |
+| 16 | agent_core imports inside fixture function bodies | Prevents import-time side effects in test infra |
+| 17 | All fixtures autouse=False | Tests must explicitly request dependencies |
 
 ### Active Todos
 
 - ✅ Plan 02-01: Packaging + env vars + dead code — COMPLETE
 - ✅ Plan 02-02: Fernet credential encryption — COMPLETE
-- ⏳ Plan 02-03: Flask hardening + sys.path cleanup (next)
+- ✅ Plan 02-03: Flask hardening + sys.path cleanup — COMPLETE
+- ✅ Plan 03-01: pytest setup + conftest.py (TEST-01) — COMPLETE
+- ⏳ Plan 03-02: Scoring engine unit tests (TEST-02) — next
 
 ### Blockers
 

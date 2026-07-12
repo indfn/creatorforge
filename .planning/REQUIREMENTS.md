@@ -23,7 +23,8 @@
 
 ### Test Infrastructure (TEST)
 
-- [ ] **TEST-01**: Set up test framework with `pytest` and `pytest-cov`
+- [x] **TEST-01
+**: Set up test framework with `pytest` and `pytest-cov`
 - [ ] **TEST-02**: Write unit tests for scoring engine (`agent_core/scoring/engine.py`)
 - [ ] **TEST-03**: Write unit tests for skeleton pipeline (`agent_core/recon/skeleton_ripper/`)
 - [ ] **TEST-04**: Write unit tests for bridge module (`agent_core/recon/bridge.py`)

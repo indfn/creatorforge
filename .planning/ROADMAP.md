@@ -64,13 +64,21 @@ Plans:
 **Depends on**: Phase 2
 **Requirements**: TEST-01, TEST-02, TEST-03, TEST-04, TEST-05, TEST-06
 **Success Criteria** (what must be TRUE):
-  1. `pytest` and `pytest-cov` are configured; `pytest` from project root discovers and runs all tests with coverage reporting
-  2. Scoring engine tests cover all 4 criteria (ICP relevance, timeliness, content gap, proof potential) and weighted total calculation with edge cases
-  3. Skeleton pipeline tests cover all 5 stages (scrape, transcribe, extract, aggregate, synthesize) using mock data
-  4. Bridge module tests cover skeleton-to-topic conversion, pillar matching, and engagement extraction from varied formats
-  5. Database model tests cover CRUD operations for Asset and Collection with type validation and error cases
-  6. Config/credential loading tests cover environment variable cascade (env → .env → .credentials) and credential masking
-**Plans**: TBD
+   1. `pytest` and `pytest-cov` are configured; `pytest` from project root discovers and runs all tests with coverage reporting
+   2. Scoring engine tests cover all 4 criteria (ICP relevance, timeliness, content gap, proof potential) and weighted total calculation with edge cases
+   3. Skeleton pipeline tests cover all 5 stages (scrape, transcribe, extract, aggregate, synthesize) using mock data
+   4. Bridge module tests cover skeleton-to-topic conversion, pillar matching, and engagement extraction from varied formats
+   5. Database model tests cover CRUD operations for Asset and Collection with type validation and error cases
+   6. Config/credential loading tests cover environment variable cascade (env → .env → .credentials) and credential masking
+**Plans**: 6 plans / 1 complete
+
+Plans:
+- [x] 03-01-PLAN.md — pytest setup + conftest.py (TEST-01)
+- [ ] 03-02-PLAN.md — Scoring engine unit tests (TEST-02)
+- [ ] 03-03-PLAN.md — Config/credential loading tests (TEST-06)
+- [ ] 03-04-PLAN.md — Bridge module tests (TEST-04)
+- [ ] 03-05-PLAN.md — Database model tests (TEST-05)
+- [ ] 03-06-PLAN.md — Skeleton pipeline tests (TEST-03)
 
 ### Phase 4: CI Pipeline & Extended Tests
 **Goal**: Schema validation tests, external API mock tests, and automated CI pipeline ensure code quality gates are enforced on every change.
@@ -229,7 +237,7 @@ Phase 1 (Foundation & Pipeline)
 |-------|----------------|--------|-----------|
 | 1. Foundation & Pipeline Infrastructure | 0/– | Not started | - |
 | 2. Security Hardening & Packaging | 0/– | Not started | - |
-| 3. Test Framework & Core Unit Tests | 0/– | Not started | - |
+| 3. Test Framework & Core Unit Tests | 1/6 | In Progress | - |
 | 4. CI Pipeline & Extended Tests | 0/– | Not started | - |
 | 5. Channel Onboarding & Branding | 0/– | Not started | - |
 | 6. YouTube Publishing | 0/– | Not started | - |
