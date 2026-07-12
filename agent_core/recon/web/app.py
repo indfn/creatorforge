@@ -131,18 +131,14 @@ def api_list_competitors():
     return jsonify(result)
 
 
-@app.route('/api/competitors/<handle>/scrape', methods=['POST'])
-def api_scrape_competitor(handle):
-    """Scrape a single competitor."""
+def _scrape_competitor(handle_clean: str, max_reels: int = 50) -> Optional[str]:
+    """Internal: start a scrape job for a competitor. Returns job_id or None if not found."""
     config = load_config()
-    handle_clean = handle.lstrip("@")
 
-    # Find competitor config
     competitor = next((c for c in config.competitors if c.handle.lstrip("@") == handle_clean), None)
     if not competitor:
-        return jsonify({"error": f"Competitor @{handle_clean} not found in agent brain"}), 404
+        return None
 
-    max_reels = request.json.get("max_reels", 50) if request.is_json else 50
     job_id = str(uuid.uuid4())[:8]
 
     active_jobs[job_id] = {
@@ -201,6 +197,17 @@ def api_scrape_competitor(handle):
             logger.error("UI", f"Scrape error for @{handle_clean}", exception=e)
 
     Thread(target=run_scrape, daemon=True).start()
+    return job_id
+
+
+@app.route('/api/competitors/<handle>/scrape', methods=['POST'])
+def api_scrape_competitor(handle):
+    """Scrape a single competitor."""
+    handle_clean = handle.lstrip("@")
+    max_reels = request.json.get("max_reels", 50) if request.is_json else 50
+    job_id = _scrape_competitor(handle_clean, max_reels)
+    if job_id is None:
+        return jsonify({"error": f"Competitor @{handle_clean} not found in agent brain"}), 404
     return jsonify({"job_id": job_id, "status": "started"})
 
 
@@ -212,18 +219,9 @@ def api_scrape_all():
 
     for c in competitors:
         handle_clean = c.handle.lstrip("@")
-        # Trigger individual scrape via internal call
-        with app.test_request_context(
-            f'/api/competitors/{handle_clean}/scrape',
-            method='POST',
-            content_type='application/json',
-            data=json.dumps({"max_reels": 50})
-        ):
-            response = api_scrape_competitor(handle_clean)
-            if hasattr(response, 'json'):
-                data = response.get_json()
-                if data and "job_id" in data:
-                    job_ids.append(data["job_id"])
+        job_id = _scrape_competitor(handle_clean)
+        if job_id:
+            job_ids.append(job_id)
 
     return jsonify({"job_ids": job_ids, "count": len(job_ids)})
 
