@@ -8,7 +8,8 @@
 **: Move hardcoded Gemini API key from `tts_generation.py` to `GEMINI_API_KEY` env var
 - [x] **SEC-02
 **: Remove `debug=True` from Flask app; add `--debug` CLI flag
-- [ ] **SEC-03**: Encrypt `data/recon/.credentials` file or use system keyring; restrict perms to 0600
+- [x] **SEC-03
+**: Encrypt `data/recon/.credentials` file or use system keyring; restrict perms to 0600
 - [x] **SEC-04
 **: Whitelist and validate allowed keys in settings API (`api_save_settings`)
 - [x] **SEC-05

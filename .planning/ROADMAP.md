@@ -44,13 +44,18 @@
 **Depends on**: Phase 1
 **Requirements**: SEC-01, SEC-02, SEC-03, SEC-04, SEC-05, SEC-06, SEC-07, SEC-08
 **Success Criteria** (what must be TRUE):
-  1. No hardcoded API keys or proxy URLs in source code — all credentials read from environment variables (`GEMINI_API_KEY`, `PROXY_URL`)
-  2. Flask app runs with `debug=False` by default; `--debug` CLI flag enables development mode
-  3. Credential storage uses encryption or system keyring with file permissions restricted to `0600`
-  4. Settings API rejects requests with keys outside a defined whitelist and validates value formats before saving
-  5. Project installs via `pip install -e .` using `pyproject.toml`; zero `sys.path.insert` hacks remain
-  6. Flask binds to `127.0.0.1` by default; `--host` flag enables explicit LAN access
-**Plans**: TBD
+   1. No hardcoded API keys or proxy URLs in source code — all credentials read from environment variables (`GEMINI_API_KEY`, `PROXY_URL`)
+   2. Flask app runs with `debug=False` by default; `--debug` CLI flag enables development mode
+   3. Credential storage uses encryption or system keyring with file permissions restricted to `0600`
+   4. Settings API rejects requests with keys outside a defined whitelist and validates value formats before saving
+   5. Project installs via `pip install -e .` using `pyproject.toml`; zero `sys.path.insert` hacks remain
+   6. Flask binds to `127.0.0.1` by default; `--host` flag enables explicit LAN access
+**Plans**: 3 plans
+
+Plans:
+- [x] 02-01-PLAN.md — Packaging + credential env vars + dead code removal
+- [x] 02-02-PLAN.md — Fernet credential encryption with 0600 perms
+- [ ] 02-03-PLAN.md — Flask hardening (debug/host/settings) + sys.path cleanup
 
 ### Phase 3: Test Framework & Core Unit Tests
 **Goal**: Core business logic modules (scoring engine, skeleton pipeline, bridge, storage, config) have comprehensive unit test coverage with pytest.
