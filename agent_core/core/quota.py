@@ -4,6 +4,7 @@ All quota-aware pipeline stages call consume() before making API requests.
 """
 
 import json
+import logging
 import os
 import threading
 from pathlib import Path
@@ -15,6 +16,7 @@ import portalocker
 
 from agent_core.core.validation import validate_or_raise
 
+logger = logging.getLogger(__name__)
 
 QUOTA_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "quota"
 QUOTA_FILE = QUOTA_DIR / "budget.json"
@@ -81,8 +83,8 @@ class QuotaBudget:
                     if data.get("date") == today:
                         return data
                     return self._reset_for_new_day(data)
-                except (json.JSONDecodeError, ValueError):
-                    pass
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.warning("Quota state file corrupted, resetting to defaults: %s", e)
 
         return self._fresh_state(today)
 
