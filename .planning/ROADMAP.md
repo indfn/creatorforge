@@ -6,17 +6,18 @@
 
 ## Phases
 
-- [ ] **Phase 1: Foundation & Pipeline Infrastructure** — Build checkpoint system, quality gates, QuotaBudget service, and state management that every other phase depends on
+- [x] **Phase 1: Foundation & Pipeline Infrastructure** — Build checkpoint system, quality gates, QuotaBudget service, and state management that every other phase depends on
 - [ ] **Phase 2: Security Hardening & Packaging** — Fix all known security vulnerabilities and properly package the project as a pip-installable module
 - [ ] **Phase 3: Test Framework & Core Unit Tests** — Set up pytest and write comprehensive unit tests for existing core logic modules
 - [ ] **Phase 4: CI Pipeline & Extended Tests** — Add schema validation tests, mock-based API tests, and GitHub Actions automation
-- [ ] **Phase 5: YouTube Publishing** — Implement OAuth 2.0 with dual-credential partitioning, resumable upload with thumbnails, SEO metadata generation, and publication scheduling
-- [ ] **Phase 6: Analytics Collection & Storage** — Dual-phase polling (24h basic + 72h deep), schema-validated persistence
-- [ ] **Phase 7: Brain Evolution Loop** — Evolve agent brain learning weights from real performance data to close the content strategy feedback loop
-- [ ] **Phase 8: Audio Production (Per-Scene)** — Per-scene TTS + force alignment + subtitle generation, temp asset management
-- [ ] **Phase 9: Visual Asset Pipeline (Consistent + Temp)** — Consistent/temp split, stock API sourcing, character SVGs, global + channel library
-- [ ] **Phase 10: Scene Assembly & Final Render** — Script splitting → per-scene two-pass render → assembly with subtitles + transitions → multi-format output → temp cleanup
-- [ ] **Phase 11: Agent Documentation** — Write AGENTS.md workflow directives and process-specific markdown files for agentic automation
+- [ ] **Phase 5: Channel Onboarding & Branding** — Link a YouTube channel via OAuth, set channel description/tags, upload avatar/banner/watermark, and configure default upload settings so the channel is ready for content
+- [ ] **Phase 6: YouTube Publishing** — Upload videos with full metadata (category, language, playlist, chapters, audience settings), SEO title/desc/tags, thumbnail, pin comment, and post-hoc updates
+- [ ] **Phase 7: Analytics Collection & Storage** — Dual-phase polling (24h basic + 72h deep), schema-validated persistence
+- [ ] **Phase 8: Brain Evolution Loop** — Evolve agent brain learning weights from real performance data to close the content strategy feedback loop
+- [ ] **Phase 9: Audio Production (Per-Scene)** — Per-scene TTS + force alignment + subtitle generation, temp asset management
+- [ ] **Phase 10: Visual Asset Pipeline (Consistent + Temp)** — Consistent/temp split, stock API sourcing, character SVGs, global + channel library
+- [ ] **Phase 11: Scene Assembly & Final Render** — Script splitting → per-scene two-pass render → assembly with subtitles + transitions → multi-format output → temp cleanup
+- [ ] **Phase 12: Agent Documentation** — Write AGENTS.md workflow directives and process-specific markdown files for agentic automation
 
 ---
 
@@ -27,6 +28,7 @@
 **Depends on**: Nothing
 **Requirements**: PIPE-01, PIPE-02, PIPE-03, PIPE-04, PIPE-05, PIPE-06, PIPE-07
 **Non-requirement action**: Kick off Google OAuth consent screen audit and YouTube API quota extension request (2-4 week lead time — must start immediately to avoid blocking Phase 5)
+**Completed**: 2026-07-12 — 3 plans, 7/7 PIPE requirements
 **Success Criteria** (what must be TRUE):
   1. Every pipeline stage produces a typed JSON artifact validated against its JSON Schema contract
   2. Pipeline can resume from the last successful checkpoint after a crash or restart without re-running completed stages
@@ -74,99 +76,120 @@
   4. Instagram Insights fetcher uses mocks to verify API response parsing, token refresh, and error recovery
 **Plans**: TBD
 
-### Phase 5: YouTube Publishing
-**Goal**: Users can authorize their YouTube channel via OAuth, upload videos with SEO-optimized metadata and thumbnails, control privacy, schedule publication, and operate within API quota limits using dual-credential partitioning.
-**Depends on**: Phase 1 (QuotaBudget, checkpoints, dual-credential state), Phase 2 (secure credential storage for OAuth tokens)
-**Requirements**: PUBLISH-01, PUBLISH-02, PUBLISH-03, PUBLISH-04, PUBLISH-05, PUBLISH-06, PUBLISH-07
+### Phase 5: Channel Onboarding & Branding
+**Goal**: New YouTube channels can be fully set up through the agent — linked via OAuth, branded with description/tags/avatar/banner/watermark, and pre-configured with default upload settings — so the channel is ready to receive content before the first publish.
+**Depends on**: Phase 1 (state management for per-channel config), Phase 2 (secure credential storage for OAuth tokens)
+**Requirements**: CHANNEL-01, CHANNEL-02, CHANNEL-03, CHANNEL-04, CHANNEL-05, CHANNEL-06, CHANNEL-07
+**Prerequisite manual step**: The user must create their YouTube channel manually via the YouTube/Google interface (linking a Brand Account) — the API cannot create channels, only update existing ones.
 **Success Criteria** (what must be TRUE):
-  1. User completes OAuth 2.0 flow with offline access; token persists per channel and auto-refreshes before expiry
-  2. The upload flow runs on an isolated OAuth API project, preserving the 10,000 daily quota block solely for verified video publishes and analytics retrieval
-  3. Scraping uses separate API-key-only credentials (Project A) so quota exhaustion from competitor discovery never blocks publishing
-  4. Video uploads succeed via resumable protocol with 256KB-multiple chunks, exponential backoff, and progress reporting; thumbnail upload via `thumbnails.set`
-  5. LLM generates on-brand title, description, tags, category, and age rating for each video; user can review generated metadata before posting
-  6. Thumbnail is auto-extracted from a video keyframe or accepts user-provided image; uploaded via `thumbnails.set`
-  7. Uploads support public/private/unlisted visibility and future-dated `publishAt` scheduling
-  8. Publishing configuration (channel ID, privacy defaults, upload settings) reads from per-channel `channel_config.json`
+   1. User completes OAuth 2.0 flow with offline access; token persists per channel and auto-refreshes before expiry
+   2. Channel description, tags/keywords, country, and default language are set via `channels.update` API
+   3. Channel profile picture (avatar) uploaded via API
+   4. Channel banner image uploaded via API
+   5. Branding watermark configured and visible on embedded video player
+   6. Default upload settings configured (visibility default, comment moderation defaults, license default, embed toggle)
+   7. All channel branding config (avatar path, banner path, description, tags, settings) persisted to `channels/{Name}/channel_config.json`
 **Plans**: TBD
 
-### Phase 6: Analytics Collection & Storage
+### Phase 6: YouTube Publishing
+**Goal**: Videos are published with complete metadata (category, language, playlist, chapters, audience settings), SEO-optimized title/desc/tags, thumbnail, pin comment, and the ability to update everything post-hoc. Dual-credential partitioning prevents scraper quota from blocking publishes.
+**Depends on**: Phase 1 (QuotaBudget, checkpoints, dual-credential state), Phase 2 (secure credential storage for OAuth tokens), Phase 5 (channel must be branded with default settings before publishing)
+**Requirements**: PUBLISH-01, PUBLISH-02, PUBLISH-03, PUBLISH-04, PUBLISH-05, PUBLISH-06, PUBLISH-07, PUBLISH-08, PUBLISH-09, PUBLISH-10, PUBLISH-11, PUBLISH-12, PUBLISH-13
+**Success Criteria** (what must be TRUE):
+   1. User completes OAuth 2.0 flow with offline access; token persists per channel and auto-refreshes before expiry
+   2. Upload flow runs on an isolated OAuth API project, preserving the 10,000 daily quota block solely for verified video publishes and analytics retrieval
+   3. Scraping uses separate API-key-only credentials (Project A) so quota exhaustion from competitor discovery never blocks publishing
+   4. Video uploads succeed via resumable protocol with 256KB-multiple chunks, exponential backoff, and progress reporting; thumbnail upload via `thumbnails.set`
+   5. LLM generates on-brand title, description, tags, category, and age rating for each video; user can review generated metadata before posting
+   6. Thumbnail is auto-extracted from a video keyframe or accepts user-provided image; uploaded via `thumbnails.set`
+   7. Uploads support public/private/unlisted visibility and future-dated `publishAt` scheduling
+   8. Publishing configuration (channel ID, privacy defaults, upload settings) reads from per-channel `channel_config.json`
+   9. Video assigned to playlist(s) during or after upload via PlaylistItems API
+   10. Full metadata set on upload: YouTube category, video language, recording date/location, made-for-kids designation, age restriction, license (standard vs CC), embed enabled/disabled, comments enabled/disabled
+   11. Chapter markers auto-generated in the video description from per-scene timestamps (scene_01, scene_02, ...)
+   12. A comment is pinned on the published video (e.g., timestamp links, CTA, pinned Q&A prompt)
+   13. Video metadata (title, description, tags, thumbnail, playlist assignment) can be updated post-hoc after publish
+**Plans**: TBD
+
+### Phase 7: Analytics Collection & Storage
 **Goal**: Performance data from published videos is collected in a dual-phase polling loop — basic velocity metrics at 24h, deep behavioral metrics at 72h — validated against schema, and persisted for downstream analysis.
-**Depends on**: Phase 5 (needs published videos to collect analytics)
+**Depends on**: Phase 6 (needs published videos to collect analytics)
 **Requirements**: ANALYTICS-01, ANALYTICS-02, ANALYTICS-06
 **Success Criteria** (what must be TRUE):
-  1. Basic public metrics (view count) polled 24 hours post-publish to assess initial velocity
-  2. Deep analytical metrics (CTR, AVD, audience retention) exclusively polled after a mandatory 72-hour delay since video's public publish timestamp — YouTube Analytics API requires 48-72h to stabilize retention data
-  3. Each video's analytics entry stored as JSONL with schema-validated fields split by tier (basic at 24h, full at 72h)
-  4. Aggregate functions in `analytics/insights.py` compile metrics across channels: averages, trends, and comparative rankings
+   1. Basic public metrics (view count) polled 24 hours post-publish to assess initial velocity
+   2. Deep analytical metrics (CTR, AVD, audience retention) exclusively polled after a mandatory 72-hour delay since video's public publish timestamp — YouTube Analytics API requires 48-72h to stabilize retention data
+   3. Each video's analytics entry stored as JSONL with schema-validated fields split by tier (basic at 24h, full at 72h)
+   4. Aggregate functions in `analytics/insights.py` compile metrics across channels: averages, trends, and comparative rankings
 **Plans**: TBD
 
-### Phase 7: Brain Evolution Loop
+### Phase 8: Brain Evolution Loop
 **Goal**: The agent brain automatically evolves its learning weights from real performance data, closing the content strategy feedback loop.
-**Depends on**: Phase 6 (needs analytics data as input for weight updates)
+**Depends on**: Phase 7 (needs analytics data as input for weight updates)
 **Requirements**: ANALYTICS-03, ANALYTICS-04, ANALYTICS-05, ANALYTICS-07
 **Success Criteria** (what must be TRUE):
-  1. Cross-channel insight aggregation detects meaningful patterns across collected data (e.g., "Short-form outperforms long-form on Channel A")
-  2. Brain weight updater transforms learning weights by calculating performance ratios from analytics (ICP relevance, timeliness, etc.)
-  3. Updated brain weights are integrated into the scoring engine so future topic scores reflect learned performance patterns
-  4. Weight updates only trigger after minimum 3 videos per content pillar to prevent overfitting to noise
+   1. Cross-channel insight aggregation detects meaningful patterns across collected data (e.g., "Short-form outperforms long-form on Channel A")
+   2. Brain weight updater transforms learning weights by calculating performance ratios from analytics (ICP relevance, timeliness, etc.)
+   3. Updated brain weights are integrated into the scoring engine so future topic scores reflect learned performance patterns
+   4. Weight updates only trigger after minimum 3 videos per content pillar to prevent overfitting to noise
 **Plans**: TBD
 
-### Phase 8: Audio Production (Per-Scene)
+### Phase 9: Audio Production (Per-Scene)
 **Goal**: Script converted to per-scene TTS audio with word-level force alignment and per-scene subtitle generation, following the scene-by-scene production workflow.
-**Depends on**: Phase 1 (scene-level checkpoints for audio artifacts), Phase 5 (need final script before splitting into scenes)
+**Depends on**: Phase 1 (scene-level checkpoints for audio artifacts)
 **Requirements**: PROD-AUDIO-01, PROD-AUDIO-02, PROD-AUDIO-03, PROD-AUDIO-04, PROD-AUDIO-05, PROD-AUDIO-06
-**Parallelizable with**: Phase 9 (Visual Asset Pipeline) — no data dependency between audio and visual
+**Parallelizable with**: Phase 10 (Visual Asset Pipeline) — no data dependency between audio and visual
 **Success Criteria** (what must be TRUE):
-  1. Production pipeline splits script into numbered scenes; each scene gets its own `scene_XX_script.txt`
-  2. Per-scene TTS generation: each `scene_XX_script.txt` → `scene_XX_audio.wav` via multi-provider fallback chain
-  3. Per-scene force alignment: each `scene_XX_audio.wav` → word-level timestamps via `faster-whisper` with VAD pre-segmentation
-  4. Per-scene subtitle files generated from aligned transcript (SRT/VTT format) — reduces load on final render
-  5. Generated audio marked as temp asset — stored in `channels/{Name}/active_production/`, cleaned up after final video published
-  6. `faster-whisper` version pinned; alignment accuracy validated against test corpus; ≥90% word accuracy
+   1. Production pipeline splits script into numbered scenes; each scene gets its own `scene_XX_script.txt`
+   2. Per-scene TTS generation: each `scene_XX_script.txt` → `scene_XX_audio.wav` via multi-provider fallback chain
+   3. Per-scene force alignment: each `scene_XX_audio.wav` → word-level timestamps via `faster-whisper` with VAD pre-segmentation
+   4. Per-scene subtitle files generated from aligned transcript (SRT/VTT format) — burned into the video at render time via HyperFrames, not uploaded to YouTube as separate tracks
+   5. Generated audio marked as temp asset — stored in `channels/{Name}/active_production/`, cleaned up after final video published
+   6. `faster-whisper` version pinned; alignment accuracy validated against test corpus; ≥90% word accuracy
 **Plans**: TBD
 
-### Phase 9: Visual Asset Pipeline (Consistent + Temp Separation)
+### Phase 10: Visual Asset Pipeline (Consistent + Temp Separation)
 **Goal**: Assets organized into consistent (reusable) and temp (per-video) stores, with stock API sourcing, character SVG model support, global + per-channel library.
 **Depends on**: Phase 1 (scene-level checkpoints for asset artifacts between pipeline stages)
 **Requirements**: PROD-VISUAL-01, PROD-VISUAL-02, PROD-VISUAL-03, PROD-VISUAL-04, PROD-VISUAL-05, PROD-VISUAL-06, PROD-VISUAL-07, PROD-VISUAL-08, PROD-VISUAL-09
-**Parallelizable with**: Phase 8 (Audio Production) — no data dependency between visual and audio
+**Parallelizable with**: Phase 9 (Audio Production) — no data dependency between visual and audio
 **Success Criteria** (what must be TRUE):
-  1. Asset storage split into two tiers:
-     - **Consistent assets** at `assets/consistent/` — reusable images, GIFs, common SFX, character SVGs (survive across videos)
-     - **Temp assets** at `channels/{Name}/active_production/` — per-video generated assets (cleaned after publish)
-  2. Global consistent asset library at `assets/consistent/global/` with channel overrides at `channels/{Name}/assets/`
-  3. Character SVG models stored as first-class consistent assets — loaded, cached, and referenced across scenes and channels via `assets/consistent/global/characters/`
-  4. Pexels API returns relevant B-roll footage and images to consistent store; Pixabay as fallback
-  5. Freesound API returns relevant SFX to consistent store with content-based search
-  6. Asset cache is SQLite-backed with TTL-based eviction for consistent and stock assets
-  7. All stock API rate limits and quotas respected; clear error messages with retry hints
-  8. Unused commented-out dependencies removed or moved to optional extras
+   1. Asset storage split into two tiers:
+      - **Consistent assets** at `assets/consistent/` — reusable images, GIFs, common SFX, character SVGs (survive across videos)
+      - **Temp assets** at `channels/{Name}/active_production/` — per-video generated assets (cleaned after publish)
+   2. Global consistent asset library at `assets/consistent/global/` with channel overrides at `channels/{Name}/assets/`
+   3. Character SVG models stored as first-class consistent assets — loaded, cached, and referenced across scenes and channels via `assets/consistent/global/characters/`
+   4. Pexels API returns relevant B-roll footage and images to consistent store; Pixabay as fallback
+   5. Freesound API returns relevant SFX to consistent store with content-based search
+   6. Asset cache is SQLite-backed with TTL-based eviction for consistent and stock assets
+   7. All stock API rate limits and quotas respected; clear error messages with retry hints
+   8. Unused commented-out dependencies removed or moved to optional extras
 **Plans**: TBD
 
-### Phase 10: Scene Assembly & Final Render
+### Phase 11: Scene Assembly & Final Render
 **Goal**: Script split into scenes → each scene rendered individually via two-pass hybrid (Puppeteer → FFmpeg) → all scene clips assembled with subtitles and transitions → final multi-format output.
-**Depends on**: Phase 1 (scene-level checkpoints), Phase 8 (per-scene audio + subtitles), Phase 9 (consistent + temp assets)
+**Depends on**: Phase 1 (scene-level checkpoints), Phase 9 (per-scene audio + subtitles), Phase 10 (consistent + temp assets)
 **Requirements**: PROD-RENDER-01, PROD-RENDER-02, PROD-RENDER-03, PROD-RENDER-04, PROD-RENDER-05, PROD-RENDER-06, PROD-RENDER-07
 **Success Criteria** (what must be TRUE):
-  1. **Script Splitting**: Production workflow receives full script, splits into numbered scenes (`scene_01`, `scene_02`, ...) with per-scene scripts before any generation begins
-  2. **Per-Scene Two-Pass Render**: For each scene:
-     - Pass 1 — HyperFrames generates HTML/CSS blueprint → Puppeteer rasterizes DOM/SVG animations frame-by-frame
-     - Pass 2 — FFmpeg accepts frame stream, overlays per-scene audio (`scene_XX_audio.wav`), produces `scene_XX_clip.mp4`
-  3. **Per-Scene Subtitles**: Per-scene subtitle files (SRT/VTT from Phase 8) overlaid onto corresponding scene clip — subtitle generation is per-scene to reduce final render processing load
-  4. **Final Assembly**: All scene clips concatenated into master video with crossfade transitions between scenes
-  5. **Multi-Format Output**: Master video encoded to 16:9 long-form, 9:16 Shorts, and 1:1 Instagram formats
-  6. **Temp Cleanup**: Per-scene audio, subtitle files, and rendered clips cleaned up after final video published
-  7. Render configuration (resolution, format, templates, quality presets) reads from per-channel `channel_config.json`
+   1. **Script Splitting**: Production workflow receives full script, splits into numbered scenes (`scene_01`, `scene_02`, ...) with per-scene scripts before any generation begins
+   2. **Per-Scene Two-Pass Render**: For each scene:
+      - Pass 1 — HyperFrames generates HTML/CSS blueprint → Puppeteer rasterizes DOM/SVG animations frame-by-frame
+      - Pass 2 — FFmpeg accepts frame stream, overlays per-scene audio (`scene_XX_audio.wav`), produces `scene_XX_clip.mp4`
+   3. **Per-Scene Subtitles**: Per-scene subtitle files (SRT/VTT from Phase 9) overlaid onto corresponding scene clip via HyperFrames at render time — subtitles are burned into the video, not uploaded as separate YouTube caption tracks
+   4. **Final Assembly**: All scene clips concatenated into master video with crossfade transitions between scenes
+   5. **Multi-Format Output**: Master video encoded to 16:9 long-form, 9:16 Shorts, and 1:1 Instagram formats
+   6. **Temp Cleanup**: Per-scene audio, subtitle files, and rendered clips cleaned up after final video published
+   7. Render configuration (resolution, format, templates, quality presets) reads from per-channel `channel_config.json`
 **Plans**: TBD
 
-### Phase 11: Agent Documentation
+### Phase 12: Agent Documentation
 **Goal**: Full pipeline workflow is documented in agent-facing markdown files (AGENTS.md, process-specific guides) so any AI CLI (OpenCode, Claude Code, Codex) can autonomously orchestrate the CreatorForge pipeline from discovery through publishing.
-**Depends on**: Phase 10 (need complete pipeline before documenting it)
+**Depends on**: Phase 11 (need complete pipeline before documenting it)
 **Requirements**: DOC-01, DOC-02
 **Success Criteria** (what must be TRUE):
-  1. `AGENTS.md` (or equivalent for OpenCode) at project root describes the full pipeline workflow: discover → angle → script → produce → publish → analyze → learn
-  2. Process-specific markdown files in `.agents/docs/` describe each stage in detail: input contracts, output artifacts, available commands, error recovery procedures
-  3. A CLI tool or agent can follow the documentation to autonomously run the full pipeline end-to-end without human intervention
+   1. `AGENTS.md` (or equivalent for OpenCode) at project root describes the full pipeline workflow: discover → angle → script → produce → publish → analyze → learn
+   2. Process-specific markdown files in `.agents/docs/` describe each stage in detail: input contracts, output artifacts, available commands, error recovery procedures
+   3. Process-specific docs note YouTube Studio manual-only operations (end screens, cards, thumbnail A/B testing) as human handoff steps
+   4. A CLI tool or agent can follow the documentation to autonomously run the full pipeline end-to-end without human intervention
 **Plans**: TBD
 
 ---
@@ -178,16 +201,17 @@ Phase 1 (Foundation & Pipeline)
   ├── Phase 2 (Security & Packaging)
   │     └── Phase 3 (Test Framework & Unit Tests)
   │           └── Phase 4 (CI & Extended Tests)
-  ├── Phase 5 (YouTube Publishing)
-  │     └── Phase 6 (Analytics Collection)
-  │           └── Phase 7 (Brain Evolution Loop)
-  ├── Phase 8 (Audio Production) ──┐
-  ├── Phase 9 (Visual Pipeline) ───┤
+  ├── Phase 5 (Channel Onboarding & Branding) ←─ prerequisite for publishing
+  ├── Phase 6 (YouTube Publishing) ←─ needs branded channel
+  │     └── Phase 7 (Analytics Collection)
+  │           └── Phase 8 (Brain Evolution Loop)
+  ├── Phase 9 (Audio Production) ──┐
+  ├── Phase 10 (Visual Pipeline) ──┤
   │               ┌─────────────────┘
   │               ▼
-  ├── Phase 10 (Scene Assembly & Render) ←─ Phase 8 + Phase 9 outputs
+  ├── Phase 11 (Scene Assembly & Render) ←─ Phase 9 + Phase 10 outputs
   │
-  └── Phase 11 (Agent Documentation)
+  └── Phase 12 (Agent Documentation)
 ```
 
 ---
@@ -200,13 +224,14 @@ Phase 1 (Foundation & Pipeline)
 | 2. Security Hardening & Packaging | 0/– | Not started | - |
 | 3. Test Framework & Core Unit Tests | 0/– | Not started | - |
 | 4. CI Pipeline & Extended Tests | 0/– | Not started | - |
-| 5. YouTube Publishing | 0/– | Not started | - |
-| 6. Analytics Collection & Storage | 0/– | Not started | - |
-| 7. Brain Evolution Loop | 0/– | Not started | - |
-| 8. Audio Production (Per-Scene) | 0/– | Not started | - |
-| 9. Visual Asset Pipeline (Consistent+Temp) | 0/– | Not started | - |
-| 10. Scene Assembly & Final Render | 0/– | Not started | - |
-| 11. Agent Documentation | 0/– | Not started | - |
+| 5. Channel Onboarding & Branding | 0/– | Not started | - |
+| 6. YouTube Publishing | 0/– | Not started | - |
+| 7. Analytics Collection & Storage | 0/– | Not started | - |
+| 8. Brain Evolution Loop | 0/– | Not started | - |
+| 9. Audio Production (Per-Scene) | 0/– | Not started | - |
+| 10. Visual Asset Pipeline (Consistent+Temp) | 0/– | Not started | - |
+| 11. Scene Assembly & Final Render | 0/– | Not started | - |
+| 12. Agent Documentation | 0/– | Not started | - |
 
 ---
 
@@ -217,16 +242,17 @@ Phase 1 (Foundation & Pipeline)
 | PIPE (Pipeline Infrastructure) | 7 | Phase 1 | 7/7 ✓ |
 | SEC (Security & Packaging) | 8 | Phase 2 | 8/8 ✓ |
 | TEST (Test Infrastructure) | 10 | Phases 3-4 | 10/10 ✓ |
-| PUBLISH (YouTube Publishing) | 8 | Phase 5 | 8/8 ✓ |
-| ANALYTICS (Analytics & Brain) | 7 | Phases 6-7 | 7/7 ✓ |
-| PROD-AUDIO (Audio Production) | 6 | Phase 8 | 6/6 ✓ |
-| PROD-VISUAL (Visual Assets) | 9 | Phase 9 | 9/9 ✓ |
-| PROD-RENDER (Scene Assembly & Render) | 7 | Phase 10 | 7/7 ✓ |
-| DOC (Agent Documentation) | 2 | Phase 11 | 2/2 ✓ |
-| **Total** | **64** | **11 phases** | **64/64 ✓** |
+| CHANNEL (Channel Onboarding & Branding) | 7 | Phase 5 | 7/7 ✓ |
+| PUBLISH (YouTube Publishing) | 13 | Phase 6 | 13/13 ✓ |
+| ANALYTICS (Analytics & Brain) | 7 | Phases 7-8 | 7/7 ✓ |
+| PROD-AUDIO (Audio Production) | 6 | Phase 9 | 6/6 ✓ |
+| PROD-VISUAL (Visual Assets) | 9 | Phase 10 | 9/9 ✓ |
+| PROD-RENDER (Scene Assembly & Render) | 7 | Phase 11 | 7/7 ✓ |
+| DOC (Agent Documentation) | 2 | Phase 12 | 2/2 ✓ |
+| **Total** | **76** | **12 phases** | **76/76 ✓** |
 
 ---
 
 *Created: 2026-07-10*
 *Granularity: fine*
-*Revised: 2026-07-10 — dual-credential (Phase 5), 72h analytics (Phase 6), scene-by-scene production workflow (Phases 8-10), consistent+temp asset split (Phase 9), per-scene subtitles (Phase 10), 64 total requirements*
+*Revised: 2026-07-10 — added Phase 5 (Channel Onboarding), expanded Phase 6 (Publishing with playlist/chapters/pin/post-hoc), renumbered 6-11→7-12, 76 total requirements*
