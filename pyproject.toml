@@ -47,12 +47,10 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["agent_core"]
+source = ["agent_core", "scripts"]
 omit = [
     "*.venv/*",
     "*/tests/*",
-    "*/production/*",
-    "*/scripts/*",
     "*/setup.py",
 ]
 relative_files = true
