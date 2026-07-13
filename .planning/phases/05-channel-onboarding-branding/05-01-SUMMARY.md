@@ -1,67 +1,128 @@
 ---
 phase: 05-channel-onboarding-branding
 plan: 01
-status: READY_FOR_EXECUTION
+type: execute
 wave: 1
-requirements: [CHANNEL-01]
-tasks: 2
-files_created:
-  - agent_core/publishing/oauth.py (replace stubs with full implementation)
-  - scripts/setup-yt-oauth.py (refactor to thin wrapper)
+subsystem: publishing
+tags: [oauth, youtube, auth, token-management]
+requires: [CHANNEL-01]
+provides: [oauth-core-module]
+affects: [scripts/setup-yt-oauth.py, agent_core/publishing/oauth.py]
+tech-stack:
+  added: [google-auth, google-auth-oauthlib, google-api-python-client]
+  patterns: [OAuth token lifecycle, auto-refresh, per-channel credentials]
+key-files:
+  created:
+    - agent_core/publishing/oauth.py
+  modified:
+    - scripts/setup-yt-oauth.py
+    - pyproject.toml
+decisions:
+  - D-01: OAuth token lifecycle in agent_core/publishing/oauth.py
+  - D-02: setup-yt-oauth.py becomes thin CLI wrapper
+  - D-04: oauth.py is single OAuth entry point for Phases 5, 6, 7
+  - D-08: get_authenticated_service() loads token → builds Credentials → passes to youtube.build() with auto-refresh
+  - D-10: Token persisted per-channel at channels/{Name}/yt-oauth-token.json
+  - D-11: Error messages include exact next command user should run
+  - D-12: No silent failures
+metrics:
+  duration: "~5 min"
+  completed: "2026-07-13"
 ---
 
-# Phase 05 Plan 01: OAuth Core Module — Summary
+# Phase 5 Plan 01: CHANNEL-01 — OAuth Core Module Summary
 
-**Status:** READY_FOR_EXECUTION
+**One-liner:** Implemented `agent_core/publishing/oauth.py` with 4 public functions covering the full OAuth token lifecycle (save, load, refresh, build API service), and refactored `scripts/setup-yt-oauth.py` into a thin CLI wrapper that delegates token persistence to the core module.
 
-## Objective
+## Commit
 
-Implement the OAuth core module in `agent_core/publishing/oauth.py` with full token lifecycle management, and refactor `scripts/setup-yt-oauth.py` into a thin CLI wrapper that delegates to the core module.
+| Hash | Message |
+|------|---------|
+| `c5ca27a` | `feat(05-01): CHANNEL-01: implement OAuth core module with auto-refresh` |
 
-## Scope
+## Files
 
-| Requirement | Description |
-|-------------|-------------|
-| CHANNEL-01 | Complete OAuth 2.0 flow with offline access for channel management; token per channel with auto-refresh |
+### Created
+- `agent_core/publishing/oauth.py` — 250-line OAuth core module with 4 public functions:
+  - `save_initial_token(channel, credentials)` — persists Credentials to per-channel JSON file
+  - `get_or_refresh_credentials(channel)` — loads token, refreshes if expired, returns valid Credentials
+  - `get_authenticated_service(channel)` — builds authenticated YouTube API Resource via `build("youtube", "v3", credentials=creds, static_discovery=False)`
+  - `refresh_token_if_expired(channel)` — public wrapper, returns True if valid/fresh, False if refresh fails
+  - Private helpers: `_project_root()`, `_token_path()`, `_load_token_data()`
 
-## Decisions Implemented
+### Modified
+- `scripts/setup-yt-oauth.py` — Refactored to thin CLI wrapper:
+  - Imports `save_initial_token` and `SCOPES` from core module
+  - Removes inline `token_data` dict construction and `json.dumps` serialization
+  - Removes `json` import (no longer needed)
+  - Preserves OAuth browser flow (`run_local_server`), argparse, validation checks
+- `pyproject.toml` — Added `N999` per-file ignore for `scripts/*` (hyphenated filenames are standard project convention)
 
-| Decision | Implementation |
-|----------|---------------|
-| D-01 | `get_authenticated_service()` and `refresh_token_if_expired()` in `agent_core/publishing/oauth.py` |
-| D-02 | `setup-yt-oauth.py` calls `save_initial_token()` from core module |
-| D-04 | Single OAuth entry point for Phases 5, 6, 7 |
-| D-08 | Credentials passed to `build("youtube", "v3", credentials=creds, static_discovery=False)` — auto-refresh |
-| D-10 | Token at `channels/{Name}/yt-oauth-token.json` |
-| D-11 | All error messages include actionable next commands |
-| D-12 | No silent failures — context printed for all errors |
+## Verification Results
 
-## Task Breakdown
+| Check | Result |
+|-------|--------|
+| `from agent_core.publishing.oauth import (4 public functions)` | ✅ Passed |
+| `ruff check agent_core/publishing/oauth.py` | ✅ Clean |
+| `ruff check scripts/setup-yt-oauth.py` | ✅ Clean |
+| `mypy agent_core/publishing/oauth.py` | ✅ Clean |
+| `python scripts/setup-yt-oauth.py --help` | ✅ Works |
+| No `json` import in script | ✅ Confirmed |
+| `SCOPES` not defined locally in script | ✅ Confirmed |
+| `static_discovery=False` in `build()` call | ✅ Confirmed |
+| `google.auth.transport.requests.Request()` used for refresh | ✅ Confirmed |
+| `logging` used for warnings | ✅ Confirmed |
 
-### Task 1: Implement `agent_core/publishing/oauth.py`
-- 4 public functions: `save_initial_token()`, `get_or_refresh_credentials()`, `get_authenticated_service()`, `refresh_token_if_expired()`
-- 3 private helpers: `_project_root()`, `_token_path()`, `_load_token_data()`
-- Constant `SCOPES` — exported for use by scripts (avoids duplication)
-- Standard token JSON format: `{token, refresh_token, token_uri, client_id, client_secret, scopes}`
-- `static_discovery=False` on `build()` — required for environments without cached discovery docs
+## Deviations from Plan
 
-### Task 2: Refactor `scripts/setup-yt-oauth.py`
-- Removes inline token dict construction and `json.dumps`/`write_text`
-- Imports `save_initial_token` and `SCOPES` from core module
-- Keeps browser OAuth flow (`InstalledAppFlow.run_local_server`)
-- Keeps all validation checks (channel dir, client_secret existence)
-- Removes standalone `json` import
+### Auto-fixed Issues
 
-## Threat Model
+**1. [Rule 3 - Blocking] Missing ruff and mypy in virtual environment**
+- **Found during:** Verification step
+- **Issue:** `ruff` and `mypy` not installed in `.venv/`, causing verification commands to fail
+- **Fix:** Installed `ruff` and `mypy` via `pip install`
+- **Files modified:** (none — only venv state changed)
 
-| ID | Category | Disposition | Detail |
-|----|----------|-------------|--------|
-| T-05-01 | Information Disclosure | Accept | Token file is plain JSON (per D-10); sits in gitignored `channels/` dir |
-| T-05-02 | Spoofing | Accept | Credentials object from google-auth-oauthlib — library validates OAuth response |
-| T-05-03 | Elevation of Privilege | Mitigate | Path constrained to `channels/{channel}/yt-oauth-token.json` — no traversal risk |
+**2. [Rule 3 - Blocking] F541 f-string without placeholders**
+- **Found during:** `ruff check scripts/setup-yt-oauth.py`
+- **Issue:** `print(f"Scopes: channel management + video upload + analytics read")` had a redundant `f` prefix
+- **Fix:** Removed extraneous `f` prefix
+- **Files modified:** `scripts/setup-yt-oauth.py`
 
-## Downstream Impact
+**3. [Rule 2 - Missing critical config] N999 module naming rule flagged hyphenated script filenames**
+- **Found during:** `ruff check scripts/setup-yt-oauth.py`
+- **Issue:** Ruff's `N999` rule flagged all scripts in `scripts/` for having hyphens in filenames (e.g., `setup-yt-oauth.py`), which is a standard project convention
+- **Fix:** Added `"N999"` to the existing `scripts/*` per-file ignore in `pyproject.toml`
+- **Files modified:** `pyproject.toml`
 
-- `scripts/setup-channel-branding.py` imports `get_authenticated_service()` in Plan 05-02 (CHANNEL-02) — will replace inline Credentials building
-- Phase 6 (publishing) imports `get_authenticated_service()` and `get_or_refresh_credentials()`
-- Phase 7 (analytics) imports `get_or_refresh_credentials()`
+## Key Decisions Applied
+
+- **D-01:** OAuth token lifecycle centralized in `agent_core/publishing/oauth.py`
+- **D-02:** `scripts/setup-yt-oauth.py` delegates persistence to core module
+- **D-08:** Credentials passed to `youtube.build()` — google-api-python-client handles auto-refresh on 401
+- **D-10:** Token stored at `channels/{Name}/yt-oauth-token.json`
+- **D-11:** All error messages include actionable next commands
+- **D-12:** All errors surface with context (no silent failures)
+
+## Threat Surface Check
+
+No new threat surface introduced beyond what the plan documented in T-05-01 through T-05-03. Token file paths are constrained to `channels/{channel}/yt-oauth-token.json` (path traversal mitigated). Credentials come from google-auth-oauthlib's validated `run_local_server()` flow.
+
+## Known Stubs
+
+- `agent_core/publishing/metadata.py` — Exists but not committed (will be implemented in later phase)
+- `agent_core/publishing/scheduler.py` — Exists but not committed (will be implemented in later phase)
+- `agent_core/publishing/uploader.py` — Exists but not committed (will be implemented in later phase)
+
+These are pre-existing stubs in the `agent_core/publishing/` directory that were never committed. They are not part of this plan's scope.
+
+## Self-Check: PASSED
+
+- ✅ `agent_core/publishing/oauth.py` exists with 250 lines
+- ✅ All 4 public functions import successfully
+- ✅ ruff lint passes on both modified files
+- ✅ mypy type-check passes on core module
+- ✅ `--help` works for setup script
+- ✅ No `json` import in setup script
+- ✅ `SCOPES` not defined locally in setup script
+- ✅ Commit `c5ca27a` exists in git log

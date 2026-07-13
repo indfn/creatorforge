@@ -56,7 +56,8 @@
 
 ### Channel Onboarding & Branding (CHANNEL)
 
-- [ ] **CHANNEL-01**: Complete OAuth 2.0 flow with offline access for channel management; token per channel with auto-refresh
+- [x] **CHANNEL-01
+**: Complete OAuth 2.0 flow with offline access for channel management; token per channel with auto-refresh
 - [ ] **CHANNEL-02**: Set channel basic info via `channels.update` API (description, tags/keywords, country, default language)
 - [ ] **CHANNEL-03**: Upload channel profile picture (avatar) via API
 - [ ] **CHANNEL-04**: Upload channel banner image via API

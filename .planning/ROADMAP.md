@@ -112,7 +112,12 @@ Plans:
    5. Branding watermark configured and visible on embedded video player
    6. Default upload settings configured (visibility default, comment moderation defaults, license default, embed toggle)
    7. All channel branding config (avatar path, banner path, description, tags, settings) persisted to `channels/{Name}/channel_config.json`
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — OAuth token lifecycle + core module refactor (CHANNEL-01)
+- [ ] 05-02-PLAN.md — Channel branding CLI (description, keywords, banner, watermark) (CHANNEL-02, 03, 04, 05)
+- [ ] 05-03-PLAN.md — Default settings & schema validation + persistence (CHANNEL-06, 07)
 
 ### Phase 6: YouTube Publishing
 **Goal**: Videos are published with complete metadata (category, language, playlist, chapters, audience settings), SEO-optimized title/desc/tags, thumbnail, pin comment, and the ability to update everything post-hoc. Dual-credential partitioning prevents scraper quota from blocking publishes.
@@ -247,7 +252,7 @@ Phase 1 (Foundation & Pipeline)
 | 2. Security Hardening & Packaging | 0/– | Not started | - |
 | 3. Test Framework & Core Unit Tests | 6/6 | Complete ✓ | 2026-07-12 |
 | 4. CI Pipeline & Extended Tests | 4/4 | Complete ✓ | 2026-07-13 |
-| 5. Channel Onboarding & Branding | 0/– | Not started | - |
+| 5. Channel Onboarding & Branding | 0/3 | Planning | - |
 | 6. YouTube Publishing | 0/– | Not started | - |
 | 7. Analytics Collection & Storage | 0/– | Not started | - |
 | 8. Brain Evolution Loop | 0/– | Not started | - |

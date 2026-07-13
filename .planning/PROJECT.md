@@ -84,8 +84,20 @@ One command from idea to published video: discover competitor patterns → gener
 
 ### Active (to build)
 
+- CHANNEL-01: OAuth for channel management with auto-refresh
+- CHANNEL-02: Set channel description, tags, country, language via API
+- CHANNEL-03: Upload channel profile picture
+- CHANNEL-04: Upload channel banner image
+- CHANNEL-05: Set channel branding watermark
+- CHANNEL-06: Configure default upload settings (visibility, comments, license)
+- CHANNEL-07: Persist channel branding config to channel_config.json
 - PUBLISH-01: Upload video to YouTube with metadata — uploader, OAuth, scheduling
 - PUBLISH-02: Generate SEO-optimized titles, descriptions, tags
+- PUBLISH-09: Assign video to playlists via PlaylistItems API
+- PUBLISH-10: Set full metadata (category, language, made-for-kids, license, etc.)
+- PUBLISH-11: Generate chapter markers in description from scene timestamps
+- PUBLISH-12: Pin comment on published video
+- PUBLISH-13: Update video metadata post-hoc
 - ANALYTICS-03: Collect and persist performance data per video
 - ANALYTICS-04: Aggregate cross-channel insights and detect patterns
 - ANALYTICS-05: Auto-evolve brain learning weights from performance data
@@ -118,4 +130,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-*Last updated: 2026-07-10 after codebase mapping*
+*Last updated: 2026-07-10 — added Channel Onboarding phase, expanded Publishing phase (playlist, full metadata, chapters, pin comment, post-hoc updates)*
