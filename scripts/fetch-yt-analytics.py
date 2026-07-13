@@ -55,6 +55,11 @@ def get_oauth_token():
 
     try:
         token_data = json.loads(TOKEN_PATH.read_text())
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"Warning: Could not read token file: {e}", file=sys.stderr)
+        return None
+
+    try:
         from google.oauth2.credentials import Credentials
         from google.auth.transport.requests import Request
 
@@ -75,10 +80,7 @@ def get_oauth_token():
         return creds.token
     except Exception as e:
         print(f"Warning: OAuth token refresh failed: {e}", file=sys.stderr)
-        # token_data may not be defined if json.loads failed
-        if "token_data" in locals() and token_data:
-            return token_data.get("token")
-        return None
+        return token_data.get("token")  # safe — token_data is always defined here
 
 
 def parse_iso8601_duration(duration_str):
