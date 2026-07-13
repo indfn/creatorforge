@@ -86,11 +86,17 @@ Plans:
 **Depends on**: Phase 3
 **Requirements**: TEST-07, TEST-08, TEST-09, TEST-10
 **Success Criteria** (what must be TRUE):
-  1. All 12 JSON Schema files have validation tests: valid fixtures pass, known-invalid fixtures are properly rejected
-  2. GitHub Actions CI pipeline runs ruff lint, mypy type-check, and pytest on every push and pull request
-  3. YouTube Analytics fetcher uses mocks to verify API response parsing, quota handling, and error recovery
-  4. Instagram Insights fetcher uses mocks to verify API response parsing, token refresh, and error recovery
-**Plans**: TBD
+   1. All 15 JSON Schema files have validation tests: valid fixtures pass, known-invalid fixtures are properly rejected
+   2. GitHub Actions CI pipeline runs ruff lint, mypy type-check, and pytest on every push and pull request
+   3. YouTube Analytics fetcher uses mocks to verify API response parsing, quota handling, and error recovery
+   4. Instagram Insights fetcher uses mocks to verify API response parsing, token refresh, and error recovery
+**Plans**: 4 plans
+
+Plans:
+- [x] 04-01-PLAN.md — Schema validation tests for all 15 JSON schemas (TEST-07)
+- [ ] 04-02-PLAN.md — GitHub Actions CI pipeline + ruff/mypy config (TEST-08)
+- [ ] 04-03-PLAN.md — Mock-based YouTube Analytics fetcher tests (TEST-09)
+- [ ] 04-04-PLAN.md — Mock-based Instagram Insights fetcher tests (TEST-10)
 
 ### Phase 5: Channel Onboarding & Branding
 **Goal**: New YouTube channels can be fully set up through the agent — linked via OAuth, branded with description/tags/avatar/banner/watermark, and pre-configured with default upload settings — so the channel is ready to receive content before the first publish.
@@ -238,8 +244,8 @@ Phase 1 (Foundation & Pipeline)
 |-------|----------------|--------|-----------|
 | 1. Foundation & Pipeline Infrastructure | 0/– | Not started | - |
 | 2. Security Hardening & Packaging | 0/– | Not started | - |
-| 3. Test Framework & Core Unit Tests | 1/6 | In Progress | - |
-| 4. CI Pipeline & Extended Tests | 0/– | Not started | - |
+| 3. Test Framework & Core Unit Tests | 6/6 | Complete ✓ | 2026-07-12 |
+| 4. CI Pipeline & Extended Tests | 1/4 | In Progress | - |
 | 5. Channel Onboarding & Branding | 0/– | Not started | - |
 | 6. YouTube Publishing | 0/– | Not started | - |
 | 7. Analytics Collection & Storage | 0/– | Not started | - |
