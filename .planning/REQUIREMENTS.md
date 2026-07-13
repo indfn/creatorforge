@@ -32,9 +32,10 @@
 - [x] **TEST-05**: Write unit tests for database models (`agent_core/recon/storage/`)
 - [x] **TEST-06**: Write unit tests for config/credential loading (`agent_core/recon/config.py`)
 - [ ] **TEST-07**: Add JSON Schema validation tests for all 12 schemas
-- [ ] **TEST-08**: Set up CI pipeline (GitHub Actions): lint (ruff), type-check (mypy), test (pytest)
+- [x] **TEST-08
+**: Set up CI pipeline (GitHub Actions): lint (ruff), type-check (mypy), test (pytest)
 - [ ] **TEST-09**: Add mock-based tests for YouTube Analytics fetcher (`scripts/fetch-yt-analytics.py`)
-- [ ] **TEST-10**: Add mock-based tests for Instagram Insights fetcher (`scripts/fetch-ig-insights.py`)
+- [x] **TEST-10**: Add mock-based tests for Instagram Insights fetcher (`scripts/fetch-ig-insights.py`)
 
 ### YouTube Publishing (PUBLISH)
 

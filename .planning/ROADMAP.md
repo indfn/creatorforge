@@ -9,7 +9,7 @@
 - [x] **Phase 1: Foundation & Pipeline Infrastructure** — Build checkpoint system, quality gates, QuotaBudget service, and state management that every other phase depends on
 - [x] **Phase 2: Security Hardening & Packaging** — Fix all known security vulnerabilities and properly package the project as a pip-installable module ✓
 - [x] **Phase 3: Test Framework & Core Unit Tests** — Set up pytest and write comprehensive unit tests for existing core logic modules ✓
-- [ ] **Phase 4: CI Pipeline & Extended Tests** — Add schema validation tests, mock-based API tests, and GitHub Actions automation
+- [x] **Phase 4: CI Pipeline & Extended Tests** — Add schema validation tests, mock-based API tests, and GitHub Actions automation
 - [ ] **Phase 5: Channel Onboarding & Branding** — Link a YouTube channel via OAuth, set channel description/tags, upload avatar/banner/watermark, and configure default upload settings so the channel is ready for content
 - [ ] **Phase 6: YouTube Publishing** — Upload videos with full metadata (category, language, playlist, chapters, audience settings), SEO title/desc/tags, thumbnail, pin comment, and post-hoc updates
 - [ ] **Phase 7: Analytics Collection & Storage** — Dual-phase polling (24h basic + 72h deep), schema-validated persistence
@@ -91,12 +91,13 @@ Plans:
    3. YouTube Analytics fetcher uses mocks to verify API response parsing, quota handling, and error recovery
    4. Instagram Insights fetcher uses mocks to verify API response parsing, token refresh, and error recovery
 **Plans**: 4 plans
+**Completed**: 2026-07-13 — 4 plans, 4/4 TEST requirements
 
 Plans:
 - [x] 04-01-PLAN.md — Schema validation tests for all 15 JSON schemas (TEST-07)
-- [ ] 04-02-PLAN.md — GitHub Actions CI pipeline + ruff/mypy config (TEST-08)
-- [ ] 04-03-PLAN.md — Mock-based YouTube Analytics fetcher tests (TEST-09)
-- [ ] 04-04-PLAN.md — Mock-based Instagram Insights fetcher tests (TEST-10)
+- [x] 04-02-PLAN.md — GitHub Actions CI pipeline + ruff/mypy config (TEST-08)
+- [x] 04-03-PLAN.md — Mock-based YouTube Analytics fetcher tests (TEST-09)
+- [x] 04-04-PLAN.md — Mock-based Instagram Insights fetcher tests (TEST-10)
 
 ### Phase 5: Channel Onboarding & Branding
 **Goal**: New YouTube channels can be fully set up through the agent — linked via OAuth, branded with description/tags/avatar/banner/watermark, and pre-configured with default upload settings — so the channel is ready to receive content before the first publish.
@@ -245,7 +246,7 @@ Phase 1 (Foundation & Pipeline)
 | 1. Foundation & Pipeline Infrastructure | 0/– | Not started | - |
 | 2. Security Hardening & Packaging | 0/– | Not started | - |
 | 3. Test Framework & Core Unit Tests | 6/6 | Complete ✓ | 2026-07-12 |
-| 4. CI Pipeline & Extended Tests | 1/4 | In Progress | - |
+| 4. CI Pipeline & Extended Tests | 4/4 | Complete ✓ | 2026-07-13 |
 | 5. Channel Onboarding & Branding | 0/– | Not started | - |
 | 6. YouTube Publishing | 0/– | Not started | - |
 | 7. Analytics Collection & Storage | 0/– | Not started | - |
