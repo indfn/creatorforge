@@ -15,7 +15,7 @@ Usage:
 
 Requires:
   - YOUTUBE_DATA_API_KEY in .env
-  - OAuth token at ~/.viral-command/yt-token.json (run setup-yt-oauth.py first)
+  - OAuth token at ~/.creatorforge/yt-token.json (run setup-yt-oauth.py first)
 """
 
 import argparse
@@ -35,7 +35,7 @@ except ImportError:
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 ENV_PATH = PROJECT_ROOT / ".env"
-TOKEN_PATH = Path.home() / ".viral-command" / "yt-token.json"
+TOKEN_PATH = Path.home() / ".creatorforge" / "yt-token.json"
 
 
 def load_env():
@@ -53,9 +53,8 @@ def get_oauth_token():
     if not TOKEN_PATH.exists():
         return None
 
-    token_data = json.loads(TOKEN_PATH.read_text())
-
     try:
+        token_data = json.loads(TOKEN_PATH.read_text())
         from google.oauth2.credentials import Credentials
         from google.auth.transport.requests import Request
 
@@ -76,7 +75,10 @@ def get_oauth_token():
         return creds.token
     except Exception as e:
         print(f"Warning: OAuth token refresh failed: {e}", file=sys.stderr)
-        return token_data.get("token")
+        # token_data may not be defined if json.loads failed
+        if "token_data" in locals() and token_data:
+            return token_data.get("token")
+        return None
 
 
 def parse_iso8601_duration(duration_str):
