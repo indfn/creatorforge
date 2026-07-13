@@ -19,8 +19,13 @@ def _isolate_env(monkeypatch):
     monkeypatch.delenv("YOUTUBE_DATA_API_KEY", raising=False)
     monkeypatch.setenv("YOUTUBE_DATA_API_KEY", "test-api-key")
     # Mock token path to a non-existent temp file
-    monkeypatch.setattr("scripts.fetch_yt_analytics.TOKEN_PATH",
-                        "/tmp/no-such-token.json")
+    # Note: must pass a Path object (script calls .exists() on it),
+    # and must import module first — monkeypatch.setattr with dotted
+    # string uses getattr on parent module, and scripts package doesn't
+    # export attrs for modules loaded via conftest hyphen-filename hook.
+    from pathlib import Path
+    import scripts.fetch_yt_analytics as _yt_mod
+    monkeypatch.setattr(_yt_mod, "TOKEN_PATH", Path("/tmp/no-such-token.json"))
 
 
 @pytest.fixture
@@ -187,6 +192,26 @@ class TestFetchDataApi:
             with pytest.raises(HTTPError):
                 fetch_data_api("error_id", "test-api-key")
 
+    def test_timeout_propagates(self, mock_response):
+        """Timeout from requests.get propagates through fetch_data_api."""
+        from scripts.fetch_yt_analytics import fetch_data_api
+        from requests.exceptions import Timeout
+
+        with patch("scripts.fetch_yt_analytics.requests.get",
+                   side_effect=Timeout("Connection timed out")):
+            with pytest.raises(Timeout):
+                fetch_data_api("test_video_id", "test-api-key")
+
+    def test_connection_error_propagates(self, mock_response):
+        """ConnectionError propagates through fetch_data_api."""
+        from scripts.fetch_yt_analytics import fetch_data_api
+        from requests.exceptions import ConnectionError
+
+        with patch("scripts.fetch_yt_analytics.requests.get",
+                   side_effect=ConnectionError("Connection refused")):
+            with pytest.raises(ConnectionError):
+                fetch_data_api("test_video_id", "test-api-key")
+
 
 # ── Analytics API (fetch_analytics_api) ──────────────────────────────
 
@@ -265,6 +290,32 @@ class TestFetchAnalyticsApi:
 
         assert result == {}
 
+    def test_timeout_returns_empty(self, mock_response):
+        """Timeout from requests.get returns empty dict (caught by generic except)."""
+        from scripts.fetch_yt_analytics import fetch_analytics_api
+        from requests.exceptions import Timeout
+
+        with patch("scripts.fetch_yt_analytics.requests.get",
+                   side_effect=Timeout("Connection timed out")):
+            result = fetch_analytics_api(
+                "video_id", "2026-07-10T12:00:00Z", "test-token"
+            )
+
+        assert result == {}
+
+    def test_connection_error_returns_empty(self, mock_response):
+        """ConnectionError returns empty dict (caught by generic except)."""
+        from scripts.fetch_yt_analytics import fetch_analytics_api
+        from requests.exceptions import ConnectionError
+
+        with patch("scripts.fetch_yt_analytics.requests.get",
+                   side_effect=ConnectionError("Connection refused")):
+            result = fetch_analytics_api(
+                "video_id", "2026-07-10T12:00:00Z", "test-token"
+            )
+
+        assert result == {}
+
 
 # ── OAuth Token (get_oauth_token) ────────────────────────────────────
 
@@ -274,14 +325,17 @@ class TestGetOAuthToken:
 
     def test_no_token_file_returns_none(self, monkeypatch):
         """If TOKEN_PATH doesn't exist, returns None."""
-        monkeypatch.setattr("scripts.fetch_yt_analytics.TOKEN_PATH",
-                            "/tmp/nonexistent_token.json")
+        from pathlib import Path
+        import scripts.fetch_yt_analytics as _yt_mod
+        monkeypatch.setattr(_yt_mod, "TOKEN_PATH", Path("/tmp/nonexistent_token.json"))
         from scripts.fetch_yt_analytics import get_oauth_token
 
         assert get_oauth_token() is None
 
     def test_token_file_loaded(self, monkeypatch, tmp_path):
         """Valid token file loads token string."""
+        from pathlib import Path
+        import scripts.fetch_yt_analytics as _yt_mod
         token_path = tmp_path / "yt-token.json"
         token_path.write_text(json.dumps({
             "token": "ya29.valid-token",
@@ -291,7 +345,7 @@ class TestGetOAuthToken:
             "client_secret": "test-secret",
             "scopes": ["https://www.googleapis.com/auth/yt-analytics.readonly"],
         }))
-        monkeypatch.setattr("scripts.fetch_yt_analytics.TOKEN_PATH", str(token_path))
+        monkeypatch.setattr(_yt_mod, "TOKEN_PATH", token_path)
 
         from scripts.fetch_yt_analytics import get_oauth_token
 
@@ -300,9 +354,11 @@ class TestGetOAuthToken:
 
     def test_malformed_token_file_returns_none(self, monkeypatch, tmp_path):
         """Invalid JSON in token file returns None."""
+        from pathlib import Path
+        import scripts.fetch_yt_analytics as _yt_mod
         token_path = tmp_path / "yt-token.json"
         token_path.write_text("not-json")
-        monkeypatch.setattr("scripts.fetch_yt_analytics.TOKEN_PATH", str(token_path))
+        monkeypatch.setattr(_yt_mod, "TOKEN_PATH", token_path)
 
         from scripts.fetch_yt_analytics import get_oauth_token
 
@@ -343,7 +399,7 @@ class TestMain:
 def test_load_env_skips_missing_file(monkeypatch):
     """load_env doesn't crash when .env doesn't exist."""
     import pathlib
-    monkeypatch.setattr("scripts.fetch_yt_analytics.ENV_PATH",
-                        pathlib.Path("/tmp/nonexistent/.env"))
+    import scripts.fetch_yt_analytics as _yt_mod
+    monkeypatch.setattr(_yt_mod, "ENV_PATH", pathlib.Path("/tmp/nonexistent/.env"))
     from scripts.fetch_yt_analytics import load_env
     load_env()  # should not raise

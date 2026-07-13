@@ -236,6 +236,60 @@ class TestGetMediaInsights:
         # The except clause catches HTTPError (via e.response.status_code) or generic Exception
         assert result["metrics"].get("views") is None
 
+    def test_media_fields_timeout_propagates(self, mock_response):
+        """Timeout from media fields request propagates (no try/except around first request)."""
+        from scripts.fetch_ig_insights import get_media_insights
+        from requests.exceptions import Timeout
+
+        with patch("scripts.fetch_ig_insights.requests.get",
+                   side_effect=Timeout("Connection timed out")):
+            with pytest.raises(Timeout):
+                get_media_insights("test_media_123", "test-token")
+
+    def test_media_fields_connection_error_propagates(self, mock_response):
+        """ConnectionError from media fields request propagates."""
+        from scripts.fetch_ig_insights import get_media_insights
+        from requests.exceptions import ConnectionError
+
+        with patch("scripts.fetch_ig_insights.requests.get",
+                   side_effect=ConnectionError("Connection refused")):
+            with pytest.raises(ConnectionError):
+                get_media_insights("test_media_123", "test-token")
+
+    def test_insights_timeout_propagates(self, mock_response):
+        """Timeout from insights request propagates (except only catches HTTPError)."""
+        from scripts.fetch_ig_insights import get_media_insights
+        from requests.exceptions import Timeout
+
+        media_data = _media_fields_response(media_type="VIDEO")
+
+        mock_responses = [
+            mock_response(json_data=media_data),
+            Timeout("Connection timed out"),
+        ]
+
+        with patch("scripts.fetch_ig_insights.requests.get",
+                   side_effect=mock_responses):
+            with pytest.raises(Timeout):
+                get_media_insights("test_media_123", "test-token")
+
+    def test_insights_connection_error_propagates(self, mock_response):
+        """ConnectionError from insights request propagates."""
+        from scripts.fetch_ig_insights import get_media_insights
+        from requests.exceptions import ConnectionError
+
+        media_data = _media_fields_response(media_type="VIDEO")
+
+        mock_responses = [
+            mock_response(json_data=media_data),
+            ConnectionError("Connection refused"),
+        ]
+
+        with patch("scripts.fetch_ig_insights.requests.get",
+                   side_effect=mock_responses):
+            with pytest.raises(ConnectionError):
+                get_media_insights("test_media_123", "test-token")
+
 
 class TestGetFollowerDelta:
     """Tests for get_follower_delta()."""
