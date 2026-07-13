@@ -162,7 +162,7 @@ class TestGetMediaInsights:
 
         with patch("scripts.fetch_ig_insights.requests.get",
                    side_effect=mock_responses):
-            result = get_media_insights("image_123", "test-token", media_type="IMAGE")
+            result = get_media_insights("image_123", "test-token")
 
         assert "reach" in result["metrics"]
         assert "saves" in result["metrics"]
@@ -192,7 +192,7 @@ class TestGetMediaInsights:
 
         with patch("scripts.fetch_ig_insights.requests.get",
                    side_effect=mock_responses):
-            result = get_media_insights("image_123", "test-token", media_type="IMAGE")
+            result = get_media_insights("image_123", "test-token")
 
         # (100 + 20 + 75 + 150) / 5000 * 100 = 6.9
         assert result["metrics"]["engagement_rate"] == 6.9
@@ -453,7 +453,7 @@ class TestCaptionTruncation:
 
         with patch("scripts.fetch_ig_insights.requests.get",
                    side_effect=mock_responses):
-            result = get_media_insights("test_media", "test-token", media_type="IMAGE")
+            result = get_media_insights("test_media", "test-token")
 
         assert len(result["caption"]) == 100
         assert result["caption"] == "A" * 100
