@@ -24,8 +24,8 @@ status: all_fixed
 
 ### WR-02: Module-level `sys.modules["instaloader"] = MagicMock()` 
 **File:** `tests/test_recon/skeleton_ripper/test_pipeline.py`
-**Commit:** `f8937c5`
-**Fix:** Removed module-level mock that persisted globally. Mock is now provided by session-scoped conftest fixture.
+**Commits:** `f8937c5`, `672c226`
+**Fix:** Removed module-level mock that persisted globally. `instaloader` is installed directly (4.15.2) so no fixture needed. Docstring corrected.
 
 ### WR-03: Skipped `test_partial_creator_failure` 
 **File:** `tests/test_recon/skeleton_ripper/test_pipeline.py`
