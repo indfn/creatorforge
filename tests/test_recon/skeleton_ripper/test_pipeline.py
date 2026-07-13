@@ -6,16 +6,14 @@ using mocked external dependencies (InstaClient, LLMClient, transcription, cachi
 
 All external dependencies are mocked — zero real API calls.
 All file I/O is redirected to tmp_path via monkeypatch.
-All tests import pipeline INSIDE test bodies/fixtures to allow sys.modules mocking.
+All tests import pipeline INSIDE test bodies/fixtures. Instaloader mock is
+provided by the session-scoped conftest fixture.
 """
 
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-
-# Must be done before any pipeline imports to prevent instaloader ImportError
-sys.modules["instaloader"] = MagicMock()
 
 
 # ─────────────────────────────────────────────────────────
@@ -534,7 +532,6 @@ class TestPipelineRun:
         assert result.success is True
         assert result.progress.total_creators == 2
 
-    @pytest.mark.skip(reason="Complex error simulation — see test for multi-creator scenario")
     def test_partial_creator_failure(self, pipeline_mocks, tmp_path, monkeypatch):
         """When one creator has no reels, pipeline continues with others.
 

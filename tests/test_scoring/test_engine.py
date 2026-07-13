@@ -147,7 +147,7 @@ class TestScoreICPRelevance:
         text = "automation workflow AI growth viral traffic hacking productivity scaling revenue adding headcount"
         score = engine.score_icp_relevance(text, ctx_with_pain)
         # Many icp/pillar matches → tier 7+ → base score 9
-        # Single pain point with 4 stem hits → only 1 point matched (< 2) → no bonus
+        # Single distinct pain point (< 2) → no bonus
         # Final score = 9 (capped at 10)
         assert score == 9
 
