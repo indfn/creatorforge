@@ -180,40 +180,6 @@ def fetch_analytics_api(video_id, published_at, oauth_token):
         return {}
 
 
-def fetch_ctr(video_id, published_at, oauth_token):
-    """Fetch CTR separately (different metric group in Analytics API)."""
-    if not oauth_token:
-        return None
-
-    pub_date = published_at[:10] if published_at else "2020-01-01"
-    end_date = datetime.utcnow().strftime("%Y-%m-%d")
-
-    url = "https://youtubeanalytics.googleapis.com/v2/reports"
-    params = {
-        "ids": "channel==MINE",
-        "startDate": pub_date,
-        "endDate": end_date,
-        "metrics": "cardClickRate",
-        "filters": f"video=={video_id}",
-    }
-    headers = {"Authorization": f"Bearer {oauth_token}"}
-
-    try:
-        # Try impressionClickRate (thumbnail CTR) via content owner reports
-        # The standard Analytics API doesn't expose thumbnail CTR directly.
-        # We'll try the annotationClickThroughRate as a proxy,
-        # but realistically thumbnail CTR requires YouTube Studio.
-        params["metrics"] = "views"  # Placeholder — see note below
-        resp = requests.get(url, params=params, headers=headers, timeout=15)
-        resp.raise_for_status()
-        # Note: YouTube Analytics API does NOT expose thumbnail impression CTR
-        # (impressionClickThroughRate). That metric is only in YouTube Studio.
-        # We return None and fall back to user input for CTR.
-        return None
-    except Exception:
-        return None
-
-
 def main():
     parser = argparse.ArgumentParser(description="Fetch YouTube video analytics")
     parser.add_argument("--video-id", required=True, help="YouTube video ID")
