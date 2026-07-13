@@ -34,7 +34,8 @@
 - [ ] **TEST-07**: Add JSON Schema validation tests for all 12 schemas
 - [x] **TEST-08
 **: Set up CI pipeline (GitHub Actions): lint (ruff), type-check (mypy), test (pytest)
-- [ ] **TEST-09**: Add mock-based tests for YouTube Analytics fetcher (`scripts/fetch-yt-analytics.py`)
+- [x] **TEST-09
+**: Add mock-based tests for YouTube Analytics fetcher (`scripts/fetch-yt-analytics.py`)
 - [x] **TEST-10**: Add mock-based tests for Instagram Insights fetcher (`scripts/fetch-ig-insights.py`)
 
 ### YouTube Publishing (PUBLISH)
