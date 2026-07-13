@@ -6,8 +6,7 @@ using mocked external dependencies (InstaClient, LLMClient, transcription, cachi
 
 All external dependencies are mocked — zero real API calls.
 All file I/O is redirected to tmp_path via monkeypatch.
-All tests import pipeline INSIDE test bodies/fixtures. Instaloader mock is
-provided by the session-scoped conftest fixture.
+All tests import pipeline INSIDE test bodies/fixtures.
 """
 
 import sys
