@@ -26,10 +26,11 @@
 - [x] **TEST-01
 **: Set up test framework with `pytest` and `pytest-cov`
 - [x] **TEST-02**: Write unit tests for scoring engine (`agent_core/scoring/engine.py`)
-- [ ] **TEST-03**: Write unit tests for skeleton pipeline (`agent_core/recon/skeleton_ripper/`)
-- [ ] **TEST-04**: Write unit tests for bridge module (`agent_core/recon/bridge.py`)
+- [x] **TEST-03
+**: Write unit tests for skeleton pipeline (`agent_core/recon/skeleton_ripper/`)
+- [x] **TEST-04**: Write unit tests for bridge module (`agent_core/recon/bridge.py`)
 - [x] **TEST-05**: Write unit tests for database models (`agent_core/recon/storage/`)
-- [ ] **TEST-06**: Write unit tests for config/credential loading (`agent_core/recon/config.py`)
+- [x] **TEST-06**: Write unit tests for config/credential loading (`agent_core/recon/config.py`)
 - [ ] **TEST-07**: Add JSON Schema validation tests for all 12 schemas
 - [ ] **TEST-08**: Set up CI pipeline (GitHub Actions): lint (ruff), type-check (mypy), test (pytest)
 - [ ] **TEST-09**: Add mock-based tests for YouTube Analytics fetcher (`scripts/fetch-yt-analytics.py`)

@@ -8,7 +8,7 @@
 
 - [x] **Phase 1: Foundation & Pipeline Infrastructure** — Build checkpoint system, quality gates, QuotaBudget service, and state management that every other phase depends on
 - [x] **Phase 2: Security Hardening & Packaging** — Fix all known security vulnerabilities and properly package the project as a pip-installable module ✓
-- [ ] **Phase 3: Test Framework & Core Unit Tests** — Set up pytest and write comprehensive unit tests for existing core logic modules
+- [x] **Phase 3: Test Framework & Core Unit Tests** — Set up pytest and write comprehensive unit tests for existing core logic modules ✓
 - [ ] **Phase 4: CI Pipeline & Extended Tests** — Add schema validation tests, mock-based API tests, and GitHub Actions automation
 - [ ] **Phase 5: Channel Onboarding & Branding** — Link a YouTube channel via OAuth, set channel description/tags, upload avatar/banner/watermark, and configure default upload settings so the channel is ready for content
 - [ ] **Phase 6: YouTube Publishing** — Upload videos with full metadata (category, language, playlist, chapters, audience settings), SEO title/desc/tags, thumbnail, pin comment, and post-hoc updates
@@ -70,15 +70,16 @@ Plans:
    4. Bridge module tests cover skeleton-to-topic conversion, pillar matching, and engagement extraction from varied formats
    5. Database model tests cover CRUD operations for Asset and Collection with type validation and error cases
    6. Config/credential loading tests cover environment variable cascade (env → .env → .credentials) and credential masking
-**Plans**: 6 plans / 5 complete
+**Plans**: 6 plans
+**Completed**: 2026-07-12 — 6 plans, 6/6 TEST requirements
 
 Plans:
 - [x] 03-01-PLAN.md — pytest setup + conftest.py (TEST-01)
 - [x] 03-02-PLAN.md — Scoring engine unit tests (TEST-02)
-- [ ] 03-03-PLAN.md — Config/credential loading tests (TEST-06)
-- [ ] 03-04-PLAN.md — Bridge module tests (TEST-04)
+- [x] 03-03-PLAN.md — Config/credential loading tests (TEST-06)
+- [x] 03-04-PLAN.md — Bridge module tests (TEST-04)
 - [x] 03-05-PLAN.md — Database model tests (TEST-05)
-- [ ] 03-06-PLAN.md — Skeleton pipeline tests (TEST-03)
+- [x] 03-06-PLAN.md — Skeleton pipeline tests (TEST-03)
 
 ### Phase 4: CI Pipeline & Extended Tests
 **Goal**: Schema validation tests, external API mock tests, and automated CI pipeline ensure code quality gates are enforced on every change.
