@@ -23,8 +23,11 @@ except ImportError:
     print("Missing dependencies: pip install google-auth-oauthlib google-api-python-client")
     sys.exit(1)
 
+from agent_core.core.validation import validate_or_raise
+
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 
 def get_channel_config(channel: str) -> dict:
@@ -202,6 +205,14 @@ def main():
         config["defaults"]["embed"] = args.allow_embed
     if args.allow_comments is not None:
         config["defaults"]["comments"] = args.allow_comments
+
+    # Validate against schema before saving
+    try:
+        validate_or_raise(config, "channel-config.schema.json")
+    except ValueError as e:
+        print(f"  ERROR: Config validation failed: {e}")
+        print("  Config was NOT saved. Fix the issues above and re-run.")
+        sys.exit(1)
 
     save_channel_config(args.channel, config)
 

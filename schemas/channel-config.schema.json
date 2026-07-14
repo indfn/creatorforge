@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Channel Config",
+  "description": "Visual identity and platform connection config for a CreatorForge channel",
+  "type": "object",
+  "required": ["channel_name", "brand", "youtube", "production"],
+  "properties": {
+    "channel_name": { "type": "string" },
+    "brand": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "tagline": { "type": "string" },
+        "primary_color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "secondary_color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "font_primary": { "type": "string" },
+        "font_display": { "type": "string" },
+        "logo_svg": { "type": "string" }
+      }
+    },
+    "youtube": {
+      "type": "object",
+      "properties": {
+        "channel_id": { "type": "string" },
+        "oauth_token_path": { "type": "string" },
+        "upload_defaults": {
+          "type": "object",
+          "properties": {
+            "category": { "type": "string" },
+            "language": { "type": "string" },
+            "visibility": { "type": "string", "enum": ["public", "unlisted", "private"] }
+          }
+        }
+      }
+    },
+    "production": {
+      "type": "object",
+      "properties": {
+        "render_width": { "type": "integer" },
+        "render_height": { "type": "integer" },
+        "fps": { "type": "integer" },
+        "tts": {
+          "type": "object",
+          "properties": {
+            "provider": { "type": "string" },
+            "characters": {
+              "type": "object",
+              "patternProperties": {
+                "^[a-zA-Z0-9_]+$": {
+                  "type": "object",
+                  "required": ["voice", "profile"],
+                  "properties": {
+                    "voice": { "type": "string" },
+                    "style": { "type": "string" },
+                    "pace": { "type": "string" },
+                    "accent": { "type": "string" },
+                    "profile": { "type": "string" },
+                    "scene": { "type": "string" },
+                    "context": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "branding": {
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "keywords": { "type": "string" },
+        "country": { "type": "string" },
+        "default_language": { "type": "string" },
+        "avatar_path": { "type": "string" },
+        "banner_path": { "type": "string" },
+        "watermark_path": { "type": "string" },
+        "channel_id": { "type": "string" }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "properties": {
+        "privacy": { "type": "string", "enum": ["public", "unlisted", "private"] },
+        "license": { "type": "string", "enum": ["youtube", "creativeCommon"] },
+        "embed": { "type": "boolean" },
+        "comments": { "type": "boolean" }
+      }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}
