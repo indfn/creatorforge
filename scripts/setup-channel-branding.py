@@ -223,6 +223,8 @@ def main():
     if args.default_language:
         config["branding"]["default_language"] = args.default_language
     config["branding"]["channel_id"] = channel_id
+    config.setdefault("youtube", {})
+    config["youtube"]["channel_id"] = channel_id
 
     # Default upload settings
     config.setdefault("defaults", {})
