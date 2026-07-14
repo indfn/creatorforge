@@ -41,18 +41,26 @@
 ### YouTube Publishing (PUBLISH)
 
 - [ ] **PUBLISH-01**: Implement OAuth 2.0 token lifecycle with offline access and auto-refresh
-- [ ] **PUBLISH-02**: Implement resumable YouTube upload with exponential backoff + chunked transfer; include thumbnail upload (`thumbnails.set`)
+- [x] **PUBLISH-02
+**: Implement resumable YouTube upload with exponential backoff + chunked transfer; include thumbnail upload (`thumbnails.set`)
 - [ ] **PUBLISH-03**: Implement QuotaBudget manager with persistent daily tracking
 - [ ] **PUBLISH-04**: Generate SEO-optimized title, description, tags, category, and age rating via LLM
-- [ ] **PUBLISH-05**: Support privacy status (public/private/unlisted) and `publishAt` scheduling
-- [ ] **PUBLISH-06**: Generate/select thumbnail — auto-extract keyframe from video or flag for user-provided image
-- [ ] **PUBLISH-07**: Integrate publishing with channel config (`channels/{Name}/channel_config.json`)
+- [x] **PUBLISH-05
+**: Support privacy status (public/private/unlisted) and `publishAt` scheduling
+- [x] **PUBLISH-06
+**: Generate/select thumbnail — auto-extract keyframe from video or flag for user-provided image
+- [x] **PUBLISH-07
+**: Integrate publishing with channel config (`channels/{Name}/channel_config.json`)
 - [ ] **PUBLISH-08**: Implement dual-credential partitioning — scrapers use API-key-only project (Project A), uploads use channel-specific OAuth project (Project B) — so quota exhaustion from discovery never blocks publishing
-- [ ] **PUBLISH-09**: Assign video to playlist(s) during or after upload via PlaylistItems API
+- [x] **PUBLISH-09
+**: Assign video to playlist(s) during or after upload via PlaylistItems API
 - [ ] **PUBLISH-10**: Set full video metadata on upload: YouTube category, video language, recording date/location, made-for-kids flag, age restriction, license (standard vs CC), embed enabled/disabled, comments enabled/disabled
-- [ ] **PUBLISH-11**: Generate chapter markers in the video description from per-scene timestamps (scene_01, scene_02, ...)
-- [ ] **PUBLISH-12**: Pin a comment on the published video (e.g., timestamp links, CTA, pinned Q&A prompt)
-- [ ] **PUBLISH-13**: Update video metadata post-hoc after publish (title, description, tags, thumbnail, playlist assignment)
+- [x] **PUBLISH-11
+**: Generate chapter markers in the video description from per-scene timestamps (scene_01, scene_02, ...)
+- [x] **PUBLISH-12
+**: Pin a comment on the published video (e.g., timestamp links, CTA, pinned Q&A prompt)
+- [x] **PUBLISH-13
+**: Update video metadata post-hoc after publish (title, description, tags, thumbnail, playlist assignment)
 
 ### Channel Onboarding & Branding (CHANNEL)
 
