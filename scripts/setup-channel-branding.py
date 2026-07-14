@@ -12,6 +12,7 @@ Usage:
 
 import argparse
 import json
+import mimetypes
 import sys
 from pathlib import Path
 
@@ -136,7 +137,8 @@ def main():
         if not banner_path.exists():
             print(f"  ERROR: Banner file not found: {args.banner}")
         else:
-            media = MediaFileUpload(str(banner_path), mimetype="image/jpeg", resumable=True)
+            banner_mime = mimetypes.guess_type(str(banner_path))[0] or "image/jpeg"
+            media = MediaFileUpload(str(banner_path), mimetype=banner_mime, resumable=True)
             try:
                 banner_response = youtube.channelBanners().insert(
                     media_body=media, body={"channelId": channel_id}
