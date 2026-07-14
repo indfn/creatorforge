@@ -393,6 +393,7 @@ def upload_thumbnail(channel: str, video_id: str, thumbnail_path: Path) -> bool:
     """
     try:
         youtube = get_authenticated_service(channel)
+        mimetypes.init()  # Ensure MIME types database is initialized
         mime_type = mimetypes.guess_type(str(thumbnail_path))[0] or "image/jpeg"
         media = MediaFileUpload(str(thumbnail_path), mimetype=mime_type)
         youtube.thumbnails().set(videoId=video_id, media_body=media).execute()
