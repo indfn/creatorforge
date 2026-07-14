@@ -13,21 +13,16 @@ Usage:
 """
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
 try:
     from google_auth_oauthlib.flow import InstalledAppFlow
+
+    from agent_core.publishing.oauth import SCOPES, save_initial_token
 except ImportError:
     print("Missing dependency: pip install google-auth-oauthlib")
     sys.exit(1)
-
-SCOPES = [
-    "https://www.googleapis.com/auth/yt-analytics.readonly",
-    "https://www.googleapis.com/auth/youtube",  # channel management
-    "https://www.googleapis.com/auth/youtube.upload",  # publishing (Phase 6)
-]
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
@@ -38,9 +33,6 @@ def main():
     parser = argparse.ArgumentParser(description="One-time YouTube OAuth setup")
     parser.add_argument("--channel", required=True, help="Channel name")
     args = parser.parse_args()
-
-    TOKEN_DIR = PROJECT_ROOT / "channels" / args.channel
-    TOKEN_PATH = TOKEN_DIR / "yt-oauth-token.json"
 
     if not CLIENT_SECRET.exists():
         print(f"ERROR: {CLIENT_SECRET} not found.")
@@ -59,19 +51,8 @@ def main():
     )
     credentials = flow.run_local_server(port=8080)
 
-    TOKEN_DIR.mkdir(parents=True, exist_ok=True)
-
-    token_data = {
-        "token": credentials.token,
-        "refresh_token": credentials.refresh_token,
-        "token_uri": credentials.token_uri,
-        "client_id": credentials.client_id,
-        "client_secret": credentials.client_secret,
-        "scopes": list(credentials.scopes),
-    }
-
-    TOKEN_PATH.write_text(json.dumps(token_data, indent=2))
-    print(f"\nToken saved to {TOKEN_PATH}")
+    saved_path = save_initial_token(args.channel, credentials)
+    print(f"\nToken saved to {saved_path}")
     print("YouTube Analytics API is ready. Future pulls will use this token silently.")
 
 
