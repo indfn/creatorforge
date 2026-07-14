@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 try:
+    from googleapiclient.errors import HttpError
     from googleapiclient.http import MediaFileUpload
 
     from agent_core.publishing.oauth import get_authenticated_service
@@ -65,9 +66,14 @@ def main():
     youtube = get_authenticated_service(args.channel)
 
     # Get current channel info
-    channels_response = youtube.channels().list(
-        part="brandingSettings,id", mine=True
-    ).execute()
+    try:
+        channels_response = youtube.channels().list(
+            part="brandingSettings,id", mine=True
+        ).execute()
+    except HttpError as e:
+        print(f"  ERROR: YouTube API request failed (HTTP {e.status_code}): {e.reason}")
+        print(f"  Try: python scripts/setup-yt-oauth.py --channel {args.channel}")
+        sys.exit(1)
 
     if not channels_response.get("items"):
         print("ERROR: No YouTube channel found for this account.")
@@ -112,8 +118,11 @@ def main():
         print(f"  Default language: {args.default_language}")
 
     if update_needed:
-        youtube.channels().update(part="brandingSettings", body=updates).execute()
-        print("  ✓ Channel branding settings saved")
+        try:
+            youtube.channels().update(part="brandingSettings", body=updates).execute()
+            print("  ✓ Channel branding settings saved")
+        except HttpError as e:
+            print(f"  ERROR: Failed to update branding settings (HTTP {e.status_code}): {e.reason}")
     else:
         print("  No branding text changes requested")
 
@@ -128,22 +137,32 @@ def main():
             print(f"  ERROR: Banner file not found: {args.banner}")
         else:
             media = MediaFileUpload(str(banner_path), mimetype="image/jpeg", resumable=True)
-            banner_response = youtube.channelBanners().insert(
-                media_body=media, body={"channelId": channel_id}
-            ).execute()
+            try:
+                banner_response = youtube.channelBanners().insert(
+                    media_body=media, body={"channelId": channel_id}
+                ).execute()
+            except HttpError as e:
+                print(f"  ERROR: Banner upload failed (HTTP {e.status_code}): {e.reason}")
+                banner_response = {}
             banner_url = banner_response.get("url", "")
-            print(f"  ✓ Banner uploaded: {banner_url}")
-            # Apply banner to channel
-            youtube.channels().update(
-                part="brandingSettings",
-                body={
-                    "id": channel_id,
-                    "brandingSettings": {
-                        "image": {"bannerExternalUrl": banner_url},
-                    },
-                },
-            ).execute()
-            print("  ✓ Banner applied to channel")
+            if banner_url:
+                print(f"  ✓ Banner uploaded: {banner_url}")
+                # Apply banner to channel
+                try:
+                    youtube.channels().update(
+                        part="brandingSettings",
+                        body={
+                            "id": channel_id,
+                            "brandingSettings": {
+                                "image": {"bannerExternalUrl": banner_url},
+                            },
+                        },
+                    ).execute()
+                    print("  ✓ Banner applied to channel")
+                except HttpError as e:
+                    print(f"  ERROR: Failed to apply banner to channel (HTTP {e.status_code}): {e.reason}")
+            else:
+                print("  ERROR: Banner upload returned no URL — banner was not applied")
             config["branding"]["banner_path"] = str(banner_path.resolve())
 
     # Set watermark
@@ -153,18 +172,21 @@ def main():
             print(f"  ERROR: Watermark file not found: {args.watermark}")
         else:
             media = MediaFileUpload(str(watermark_path), mimetype="image/png", resumable=True)
-            youtube.watermarks().set(
-                channelId=channel_id,
-                media_body=media,
-                body={
-                    "timing": {
-                        "type": "offsetFromStart",
-                        "offsetMs": 5000,
-                        "durationMs": 15000,
+            try:
+                youtube.watermarks().set(
+                    channelId=channel_id,
+                    media_body=media,
+                    body={
+                        "timing": {
+                            "type": "offsetFromStart",
+                            "offsetMs": 5000,
+                            "durationMs": 15000,
+                        },
                     },
-                },
-            ).execute()
-            print("  ✓ Watermark set (appears 5s-20s into videos)")
+                ).execute()
+                print("  ✓ Watermark set (appears 5s-20s into videos)")
+            except HttpError as e:
+                print(f"  ERROR: Watermark upload failed (HTTP {e.status_code}): {e.reason}")
             config["branding"]["watermark_path"] = str(watermark_path.resolve())
 
     # CHANNEL-03: Avatar/profile picture — manual-only
