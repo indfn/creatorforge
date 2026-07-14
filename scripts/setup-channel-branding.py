@@ -20,12 +20,12 @@ try:
     from googleapiclient.errors import HttpError
     from googleapiclient.http import MediaFileUpload
 
+    from agent_core.core.validation import validate_or_raise
     from agent_core.publishing.oauth import get_authenticated_service
 except ImportError:
     print("Missing dependencies: pip install google-auth-oauthlib google-api-python-client")
+    print("  If the project is not installed, run: pip install -e .")
     sys.exit(1)
-
-from agent_core.core.validation import validate_or_raise
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
