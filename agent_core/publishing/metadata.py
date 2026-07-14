@@ -287,6 +287,10 @@ def _build_full_description(
             len(full),
         )
         full = full[:_DESCRIPTION_MAX_CHARS]
+        # Truncate at word boundary to avoid cutting mid-word
+        last_space = full.rfind(" ")
+        if last_space > 0:
+            full = full[:last_space]
 
     return full
 
@@ -1050,10 +1054,10 @@ def main() -> None:
             meta_path = _active_metadata_path(args.channel)
             meta_path.parent.mkdir(parents=True, exist_ok=True)
             metadata_output = {
-                "title": metadata["title"],
-                "description": metadata["description"],
-                "tags": metadata["tags"],
-                "category_id": metadata["category_id"],
+                "title": metadata.get("title", ""),
+                "description": metadata.get("description", ""),
+                "tags": metadata.get("tags", []),
+                "category_id": metadata.get("category_id", "27"),
                 "generated_at": now_str,
                 "channel": args.channel,
             }
@@ -1064,10 +1068,10 @@ def main() -> None:
         meta_path = _active_metadata_path(args.channel)
         meta_path.parent.mkdir(parents=True, exist_ok=True)
         metadata_output = {
-            "title": metadata["title"],
-            "description": metadata["description"],
-            "tags": metadata["tags"],
-            "category_id": metadata["category_id"],
+            "title": metadata.get("title", ""),
+            "description": metadata.get("description", ""),
+            "tags": metadata.get("tags", []),
+            "category_id": metadata.get("category_id", "27"),
             "generated_at": now_str,
             "channel": args.channel,
         }
