@@ -66,19 +66,38 @@ def _project_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
+def _validate_channel(channel: str) -> None:
+    """Validate channel name to prevent path traversal.
+
+    Only allows letters, digits, hyphens, and underscores.
+
+    Raises:
+        ValueError: If the channel name contains invalid characters.
+    """
+    if not re.match(r"^[A-Za-z0-9_-]+$", channel):
+        raise ValueError(
+            f"Invalid channel name: {channel!r}. "
+            "Only letters, numbers, hyphens, underscores allowed."
+        )
+
+
 def _channel_config_path(channel: str) -> Path:
+    _validate_channel(channel)
     return _project_root() / "channels" / channel / "channel_config.json"
 
 
 def _brain_path(channel: str) -> Path:
+    _validate_channel(channel)
     return _project_root() / "channels" / channel / "brain.json"
 
 
 def _active_script_path(channel: str) -> Path:
+    _validate_channel(channel)
     return _project_root() / "channels" / channel / "active_production" / "script.json"
 
 
 def _active_metadata_path(channel: str) -> Path:
+    _validate_channel(channel)
     return _project_root() / "channels" / channel / "active_production" / "metadata.json"
 
 
@@ -90,7 +109,7 @@ def _load_channel_config(channel: str) -> dict:
         return {}
     try:
         return json.loads(config_path.read_text())
-    except (json.JSONDecodeError, OSError) as e:
+    except (json.JSONDecodeError, OSError, ValueError) as e:
         logger.warning("Failed to parse channel config %s: %s", config_path, e)
         return {}
 
@@ -103,7 +122,7 @@ def _load_brain(channel: str) -> dict:
         return {}
     try:
         return json.loads(brain_path.read_text())
-    except (json.JSONDecodeError, OSError) as e:
+    except (json.JSONDecodeError, OSError, ValueError) as e:
         logger.warning("Failed to parse brain.json %s: %s", brain_path, e)
         return {}
 
@@ -955,6 +974,13 @@ def main() -> None:
         help="Pipeline ID for chapter checkpoint reading",
     )
     args = parser.parse_args()
+
+    # Validate channel name for path traversal safety
+    try:
+        _validate_channel(args.channel)
+    except ValueError as e:
+        print(f"Error: {e}")
+        exit(1)
 
     # Load config and brain
     channel_config = _load_channel_config(args.channel)

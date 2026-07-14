@@ -45,6 +45,21 @@ def _project_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
+def _validate_channel(channel: str) -> None:
+    """Validate channel name to prevent path traversal.
+
+    Only allows letters, digits, hyphens, and underscores.
+
+    Raises:
+        ValueError: If the channel name contains invalid characters.
+    """
+    if not re.match(r"^[A-Za-z0-9_-]+$", channel):
+        raise ValueError(
+            f"Invalid channel name: {channel!r}. "
+            "Only letters, numbers, hyphens, underscores allowed."
+        )
+
+
 def _channel_config_path(channel: str) -> Path:
     """Resolve the per-channel config file path.
 
@@ -53,7 +68,11 @@ def _channel_config_path(channel: str) -> Path:
 
     Returns:
         Path to the ``channel_config.json`` file.
+
+    Raises:
+        ValueError: If the channel name contains invalid characters.
     """
+    _validate_channel(channel)
     return _project_root() / "channels" / channel / "channel_config.json"
 
 
@@ -73,7 +92,7 @@ def _load_channel_config(channel: str) -> dict:
         return {}
     try:
         return json.loads(config_path.read_text())
-    except (json.JSONDecodeError, OSError) as e:
+    except (json.JSONDecodeError, OSError, ValueError) as e:
         logger.warning("Failed to parse channel config %s: %s", config_path, e)
         return {}
 
@@ -546,6 +565,13 @@ Examples:
     )
 
     args = parser.parse_args()
+
+    # Validate channel name for path traversal safety
+    try:
+        _validate_channel(args.channel)
+    except ValueError as e:
+        print(f"Error: {e}")
+        exit(1)
 
     channel = args.channel
     video_id = args.video_id
