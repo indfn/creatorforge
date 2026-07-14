@@ -613,7 +613,7 @@ Examples:
         print(f"  Category:    {category} (ID: {CATEGORY_MAP.get(category, '27')})")
         print(f"  Privacy:     {privacy}")
         print(f"  Schedule:    {args.schedule or 'None'}")
-        print(f"  Tags:        (none \u2014 metadata.py handles SEO)")
+        print("  Tags:        (none — metadata.py handles SEO)")
         print(f"  Quota:       {remaining}/{daily_limit} remaining")
         print("=== End dry run ===")
         exit(0)

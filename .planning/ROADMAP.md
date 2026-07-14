@@ -141,7 +141,13 @@ Plans:
    11. Chapter markers auto-generated in the video description from per-scene timestamps (scene_01, scene_02, ...)
    12. A comment is pinned on the published video (e.g., timestamp links, CTA, pinned Q&A prompt)
    13. Video metadata (title, description, tags, thumbnail, playlist assignment) can be updated post-hoc after publish
-**Plans**: TBD
+**Plans**: 3 plans
+**Completed**: 2026-07-13 — 3 plans, 13/13 PUBLISH requirements
+
+Plans:
+- [x] 06-01-PLAN.md — Resumable upload engine + thumbnail + quota integration (PUBLISH-02, 05, 06, 07)
+- [x] 06-02-PLAN.md — SEO metadata generation + chapter markers + full snippet (PUBLISH-04, 10)
+- [x] 06-03-PLAN.md — Post-publish actions: playlist, comment, metadata update (PUBLISH-09, 11, 12, 13)
 
 ### Phase 7: Analytics Collection & Storage
 **Goal**: Performance data from published videos is collected in a dual-phase polling loop — basic velocity metrics at 24h, deep behavioral metrics at 72h — validated against schema, and persisted for downstream analysis.
