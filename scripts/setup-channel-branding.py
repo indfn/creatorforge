@@ -57,8 +57,8 @@ def main():
                         help="Default upload privacy")
     parser.add_argument("--default-license", choices=["youtube", "creativeCommon"],
                         help="Default video license")
-    parser.add_argument("--allow-embed", type=bool, help="Allow embedding by default")
-    parser.add_argument("--allow-comments", type=bool, help="Allow comments by default")
+    parser.add_argument("--allow-embed", action=argparse.BooleanOptionalAction, default=None, help="Allow embedding by default")
+    parser.add_argument("--allow-comments", action=argparse.BooleanOptionalAction, default=None, help="Allow comments by default")
     args = parser.parse_args()
 
     # Get authenticated YouTube API service
