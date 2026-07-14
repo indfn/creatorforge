@@ -289,7 +289,9 @@ def upload_video(
                         channel,
                         e,
                     )
-                    quota.consume("youtube_upload", 1600)
+                    # Don't consume local quota — the API rejected the request
+                    # because quota is already exhausted (the failed request
+                    # didn't count against our local budget).
                     return None
 
                 # Retryable server errors (500/502/503/504)
