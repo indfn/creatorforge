@@ -113,10 +113,14 @@ Plans:
    6. Default upload settings configured (visibility default, comment moderation defaults, license default, embed toggle)
    7. All channel branding config (avatar path, banner path, description, tags, settings) persisted to `channels/{Name}/channel_config.json`
 **Plans**: 3 plans
+**Completed**: 2026-07-13 — 3 plans, 7/7 CHANNEL requirements
 
 Plans:
 - [x] 05-01-PLAN.md — OAuth token lifecycle + core module refactor (CHANNEL-01)
 - [x] 05-02-PLAN.md — Channel branding CLI (description, keywords, banner, watermark) (CHANNEL-02, 03, 04, 05)
+- [x] 05-03-PLAN.md — Default upload settings, schema validation, persistence (CHANNEL-06, 07)
+
+### Phase 6: YouTube Publishing
 - [x] 05-03-PLAN.md — Default settings & schema validation + persistence (CHANNEL-06, 07)
 
 ### Phase 6: YouTube Publishing

@@ -56,14 +56,12 @@
 
 ### Channel Onboarding & Branding (CHANNEL)
 
-- [x] **CHANNEL-01
-**: Complete OAuth 2.0 flow with offline access for channel management; token per channel with auto-refresh
-- [ ] **CHANNEL-02**: Set channel basic info via `channels.update` API (description, tags/keywords, country, default language)
-- [ ] **CHANNEL-03**: Reference channel profile picture (avatar) path in `channel_config.json["branding"]["avatar_path"]` — **manual-only**: YouTube Data API v3 has no channel avatar upload endpoint. User must upload via YouTube Studio → Customization → Branding.
-- [ ] **CHANNEL-04**: Upload channel banner image via API
-- [ ] **CHANNEL-05**: Set channel branding watermark (appears on embedded video player)
-- [x] **CHANNEL-06
-**: Configure default video upload settings (visibility default, comment moderation defaults, license default, embed toggle)
+- [x] **CHANNEL-01**: Complete OAuth 2.0 flow with offline access for channel management; token per channel with auto-refresh
+- [x] **CHANNEL-02**: Set channel basic info via `channels.update` API (description, tags/keywords, country, default language)
+- [x] **CHANNEL-03**: Reference channel profile picture (avatar) path in `channel_config.json["branding"]["avatar_path"]` — **manual-only**: YouTube Data API v3 has no channel avatar upload endpoint. User must upload via YouTube Studio → Customization → Branding.
+- [x] **CHANNEL-04**: Upload channel banner image via API
+- [x] **CHANNEL-05**: Set channel branding watermark (appears on embedded video player)
+- [x] **CHANNEL-06**: Configure default video upload settings (visibility default, comment moderation defaults, license default, embed toggle)
 - [x] **CHANNEL-07
 **: Persist all channel branding config to `channels/{Name}/channel_config.json`
 
