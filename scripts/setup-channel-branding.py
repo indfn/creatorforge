@@ -129,6 +129,11 @@ def main():
 
     # Load/create config early so all sections can populate it
     config = get_channel_config(args.channel)
+    # Ensure required top-level sections exist for schema validation
+    config.setdefault("channel_name", args.channel)
+    config.setdefault("brand", {})
+    config.setdefault("youtube", {})
+    config.setdefault("production", {})
     config.setdefault("branding", {})
 
     # Upload banner
