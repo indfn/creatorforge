@@ -339,7 +339,15 @@ def update_metadata(
         current = response["items"][0]["snippet"]
 
         # Step 2: MODIFY — merge provided fields into existing snippet
-        merged = dict(current)
+        # Only include mutable fields; discard read-only fields like
+        # thumbnails, channelId, publishedAt that the API returns.
+        merged = {
+            "title": current.get("title", ""),
+            "description": current.get("description", ""),
+            "tags": current.get("tags", []),
+            "categoryId": current.get("categoryId", ""),
+            "defaultLanguage": current.get("defaultLanguage", ""),
+        }
         if title is not None:
             merged["title"] = title
         if description is not None:
