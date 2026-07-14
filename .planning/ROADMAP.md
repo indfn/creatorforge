@@ -10,7 +10,7 @@
 - [x] **Phase 2: Security Hardening & Packaging** — Fix all known security vulnerabilities and properly package the project as a pip-installable module ✓
 - [x] **Phase 3: Test Framework & Core Unit Tests** — Set up pytest and write comprehensive unit tests for existing core logic modules ✓
 - [x] **Phase 4: CI Pipeline & Extended Tests** — Add schema validation tests, mock-based API tests, and GitHub Actions automation
-- [ ] **Phase 5: Channel Onboarding & Branding** — Link a YouTube channel via OAuth, set channel description/tags, upload avatar/banner/watermark, and configure default upload settings so the channel is ready for content
+- [x] **Phase 5: Channel Onboarding & Branding** — Link a YouTube channel via OAuth, set channel description/tags, upload avatar/banner/watermark, and configure default upload settings so the channel is ready for content
 - [ ] **Phase 6: YouTube Publishing** — Upload videos with full metadata (category, language, playlist, chapters, audience settings), SEO title/desc/tags, thumbnail, pin comment, and post-hoc updates
 - [ ] **Phase 7: Analytics Collection & Storage** — Dual-phase polling (24h basic + 72h deep), schema-validated persistence
 - [ ] **Phase 8: Brain Evolution Loop** — Evolve agent brain learning weights from real performance data to close the content strategy feedback loop
@@ -115,9 +115,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — OAuth token lifecycle + core module refactor (CHANNEL-01)
-- [ ] 05-02-PLAN.md — Channel branding CLI (description, keywords, banner, watermark) (CHANNEL-02, 03, 04, 05)
-- [ ] 05-03-PLAN.md — Default settings & schema validation + persistence (CHANNEL-06, 07)
+- [x] 05-01-PLAN.md — OAuth token lifecycle + core module refactor (CHANNEL-01)
+- [x] 05-02-PLAN.md — Channel branding CLI (description, keywords, banner, watermark) (CHANNEL-02, 03, 04, 05)
+- [x] 05-03-PLAN.md — Default settings & schema validation + persistence (CHANNEL-06, 07)
 
 ### Phase 6: YouTube Publishing
 **Goal**: Videos are published with complete metadata (category, language, playlist, chapters, audience settings), SEO-optimized title/desc/tags, thumbnail, pin comment, and the ability to update everything post-hoc. Dual-credential partitioning prevents scraper quota from blocking publishes.
