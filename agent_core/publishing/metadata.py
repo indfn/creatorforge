@@ -753,7 +753,8 @@ def build_video_snippet(
         },
         "status": {
             "privacyStatus": privacy,
-            "publishAt": None,
+            # publishAt is added conditionally by the uploader; do NOT set
+            # it to None here — the YouTube API may reject null values.
             "selfDeclaredMadeForKids": False,
             "embeddable": embeddable,
         },
