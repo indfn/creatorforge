@@ -268,14 +268,15 @@ def upload_video(
 
         # Pre-flight quota check (T-06-01, D-11)
         quota = QuotaBudget()
+        daily_limit = quota.get_summary().get("budgets", {}).get("youtube_upload", {}).get("daily_limit", 6)
         remaining = quota.remaining("youtube_upload")
         print(
-            f"Daily upload quota: 6 max. Remaining: {remaining}/6. "
+            f"Daily upload quota: {daily_limit} max. Remaining: {remaining}/{daily_limit}. "
             f"Resets at midnight UTC."
         )
 
         if not quota.can_consume("youtube_upload", 1):
-            print("Remaining upload quota: 0/6 today. Resets at midnight UTC.")
+            print(f"Remaining upload quota: 0/{daily_limit} today. Resets at midnight UTC.")
             logger.warning("Upload quota exhausted for channel: %s", channel)
             return None
 
@@ -581,9 +582,10 @@ Examples:
 
     # Pre-flight quota display (D-11, D-12)
     quota = QuotaBudget()
+    daily_limit = quota.get_summary().get("budgets", {}).get("youtube_upload", {}).get("daily_limit", 6)
     remaining = quota.remaining("youtube_upload")
     print(
-        f"Daily upload quota: 6 max. Remaining: {remaining}/6. "
+        f"Daily upload quota: {daily_limit} max. Remaining: {remaining}/{daily_limit}. "
         f"Resets at midnight UTC."
     )
 
@@ -611,7 +613,7 @@ Examples:
         print(f"  Privacy:     {privacy}")
         print(f"  Schedule:    {args.schedule or 'None'}")
         print(f"  Tags:        (none \u2014 metadata.py handles SEO)")
-        print(f"  Quota:       {remaining}/6 remaining")
+        print(f"  Quota:       {remaining}/{daily_limit} remaining")
         print("=== End dry run ===")
         exit(0)
 
