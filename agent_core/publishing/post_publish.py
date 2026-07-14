@@ -110,6 +110,8 @@ def _ensure_tags(tags: list[str] | str | None) -> list[str] | None:
         return None
     if isinstance(tags, str):
         return [t.strip() for t in tags.split(",") if t.strip()]
+    if isinstance(tags, list):
+        return [t.strip() for t in tags if t and t.strip()]
     return tags
 
 
