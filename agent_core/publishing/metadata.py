@@ -450,7 +450,7 @@ def _generate_llm_metadata(
     brand = channel_config.get("brand", {})
     brand_name = brand.get("name", "")
     brand_tagline = brand.get("tagline", "")
-    brand_tone = brand.get("font_display", "")  # tone hint from brand
+    brand_tone = brand.get("tone", "")  # tone hint from brand
 
     identity = brain_data.get("identity", {})
     tone = identity.get("tone", brand_tone or "")
