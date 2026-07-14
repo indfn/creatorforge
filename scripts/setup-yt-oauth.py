@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-One-time YouTube OAuth setup for YouTube Analytics API.
-Opens browser for authorization, saves token to ~/.viral-command/yt-token.json.
+One-time YouTube OAuth setup for YouTube Data & Analytics APIs.
+Opens browser for authorization, saves per-channel token to channels/{Name}/yt-oauth-token.json.
 
 Prerequisites:
-  1. Enable YouTube Analytics API in Google Cloud Console
+  1. Enable YouTube Data API v3 in Google Cloud Console
   2. Create OAuth 2.0 Desktop App credentials
   3. Download client_secret.json to scripts/client_secret.json
 
 Usage:
-  python scripts/setup-yt-oauth.py
+  python scripts/setup-yt-oauth.py --channel MyChannel
 """
 
+import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -32,11 +32,16 @@ SCOPES = [
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 CLIENT_SECRET = SCRIPT_DIR / "client_secret.json"
-TOKEN_DIR = Path.home() / ".viral-command"
-TOKEN_PATH = TOKEN_DIR / "yt-token.json"
 
 
 def main():
+    parser = argparse.ArgumentParser(description="One-time YouTube OAuth setup")
+    parser.add_argument("--channel", required=True, help="Channel name")
+    args = parser.parse_args()
+
+    TOKEN_DIR = PROJECT_ROOT / "channels" / args.channel
+    TOKEN_PATH = TOKEN_DIR / "yt-oauth-token.json"
+
     if not CLIENT_SECRET.exists():
         print(f"ERROR: {CLIENT_SECRET} not found.")
         print()
