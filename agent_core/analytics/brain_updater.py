@@ -13,6 +13,7 @@ Public Functions:
 
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
@@ -24,6 +25,12 @@ logger = logging.getLogger(__name__)
 
 
 # ====== PRIVATE HELPERS ======
+
+
+def _validate_channel_name(name: str) -> None:
+    """Reject channel names with path traversal characters."""
+    if not re.match(r'^[a-zA-Z0-9_-]+$', name):
+        raise ValueError(f"Invalid channel name: {name!r}")
 
 
 def _project_root() -> Path:
@@ -70,6 +77,7 @@ def _load_analytics_entries(channel: str) -> list[dict]:
     Returns:
         List of analytics entry dicts. Empty list if no data.
     """
+    _validate_channel_name(channel)
     project_root = _project_root()
     analytics_root = project_root / "channels" / channel / "data" / "analytics"
     if not analytics_root.exists():
@@ -83,11 +91,36 @@ def _load_analytics_entries(channel: str) -> list[dict]:
         for jsonl_file in sorted(video_dir.glob("*.jsonl")):
             all_entries.extend(_read_jsonl_entries(jsonl_file))
 
+    # Deduplicate: keep only the latest entry per content_id (by analyzed_at timestamp)
+    # This prevents repeated collection runs from skewing pillar averages (WR-03).
+    seen: dict[str, dict] = {}
+    for entry in all_entries:
+        cid = entry.get("content_id")
+        if not cid:
+            continue
+        if cid not in seen or entry.get("analyzed_at", "") > seen[cid].get("analyzed_at", ""):
+            seen[cid] = entry
+    deduped = list(seen.values())
+
     logger.info(
-        "Loaded %d analytics entries for channel %s",
-        len(all_entries), channel,
+        "Loaded %d analytics entries (%d after dedup by content_id) for channel %s",
+        len(all_entries), len(deduped), channel,
     )
-    return all_entries
+    return deduped
+
+
+def _avg_metric_from_entries(entries: list[dict], metric: str) -> float:
+    """Compute the average of a metric across analytics entries.
+
+    Extracted to module level (per IN-01) to avoid redefinition on every
+    update_weights() call. Follows the same pattern as other private helpers.
+    """
+    values = [
+        e["metrics"][metric]
+        for e in entries
+        if e.get("metrics") and e["metrics"].get(metric) is not None
+    ]
+    return mean(values) if values else 0.0
 
 
 # ====== PUBLIC API ======
@@ -147,18 +180,15 @@ def update_weights(channel: str, analytics_entries: list[dict]) -> dict:
             "proof_potential": 1.0,
         }
 
-    # ---- Channel-level averages ----
-    def _avg_metric(entries: list[dict], metric: str) -> float:
-        values = [
-            e["metrics"][metric]
-            for e in entries
-            if e.get("metrics") and e["metrics"].get(metric) is not None
-        ]
-        return mean(values) if values else 0.0
-
-    channel_avg_views = _avg_metric(analytics_entries, "views")
-    channel_avg_ctr = _avg_metric(analytics_entries, "ctr")
-    channel_avg_engagement = _avg_metric(analytics_entries, "engagement_rate")
+    # ---- Channel-level averages (pillar-tagged entries only, per IN-05) ----
+    # Use only entries that have a content_pillar to avoid untagged entries
+    # inflating the channel baseline and making all pillars appear underperforming.
+    pillar_tagged_entries = [
+        e for e in analytics_entries if e.get("content_pillar")
+    ]
+    channel_avg_views = _avg_metric_from_entries(pillar_tagged_entries, "views")
+    channel_avg_ctr = _avg_metric_from_entries(pillar_tagged_entries, "ctr")
+    channel_avg_engagement = _avg_metric_from_entries(pillar_tagged_entries, "engagement_rate")
 
     # ---- Per-pillar ratios with ±50% cap ----
     def _safe_ratio(pillar_avg: float, channel_avg: float) -> float:
@@ -177,9 +207,9 @@ def update_weights(channel: str, analytics_entries: list[dict]) -> dict:
             )
             continue
 
-        pillar_avg_views = _avg_metric(entries, "views")
-        pillar_avg_ctr = _avg_metric(entries, "ctr")
-        pillar_avg_engagement = _avg_metric(entries, "engagement_rate")
+        pillar_avg_views = _avg_metric_from_entries(entries, "views")
+        pillar_avg_ctr = _avg_metric_from_entries(entries, "ctr")
+        pillar_avg_engagement = _avg_metric_from_entries(entries, "engagement_rate")
 
         pillar_deltas.append({
             "views_ratio": _safe_ratio(pillar_avg_views, channel_avg_views),
@@ -246,12 +276,12 @@ def update_hook_preferences(channel: str, analytics_entries: list[dict]) -> dict
     """
     # Default zeroed preferences (all hook types exist in schema)
     default_prefs = {
-        "contradiction": 0,
-        "specificity": 0,
-        "timeframe_tension": 0,
-        "pov_as_advice": 0,
-        "vulnerable_confession": 0,
-        "pattern_interrupt": 0,
+        "contradiction": 0.0,
+        "specificity": 0.0,
+        "timeframe_tension": 0.0,
+        "pov_as_advice": 0.0,
+        "vulnerable_confession": 0.0,
+        "pattern_interrupt": 0.0,
     }
 
     # Group by hook_pattern_used, collect CTR values
@@ -408,6 +438,7 @@ def update_brain(channel: str) -> dict:
             "timestamp": str,
         }
     """
+    _validate_channel_name(channel)
     project_root = _project_root()
     brain_path = project_root / "channels" / channel / "brain.json"
 
@@ -415,15 +446,28 @@ def update_brain(channel: str) -> dict:
     analytics_entries = _load_analytics_entries(channel)
 
     if not analytics_entries:
+        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         logger.warning("No analytics data for channel %s — brain update skipped", channel)
+        return {
+            "weights_updated": False,
+            "hooks_updated": False,
+            "patterns_updated": False,
+            "skipped_pillars": [],
+            "total_videos_analyzed": 0,
+            "channel": channel,
+            "timestamp": now_iso,
+            "reason": "No analytics data available",
+        }
 
     # ---- Load current brain.json ----
     if brain_path.exists():
         with open(brain_path, "r", encoding="utf-8") as f:
             brain = json.load(f)
     else:
-        logger.warning("brain.json not found for channel %s, creating new brain", channel)
-        brain = {}
+        raise FileNotFoundError(
+            f"brain.json not found for channel {channel}. "
+            "The channel must be initialized before running brain evolution."
+        )
 
     # ---- Track skipped pillars (D-08/D-10) ----
     pillar_entries: dict[str, int] = {}
