@@ -177,7 +177,7 @@ Plans:
 
 Plans:
 - [ ] 08-01-PLAN.md — Brain updater & scheduler: update_weights, update_hook_preferences, update_performance_patterns, update_brain, run_scheduled_collection (ANALYTICS-03, 04, 07)
-- [ ] 08-02-PLAN.md — Scoring engine integration: channel-aware brain loading, scoring with updated weights (ANALYTICS-05)
+- [x] 08-02-PLAN.md — Scoring engine integration: channel-aware brain loading, scoring with updated weights (ANALYTICS-05)
 
 ### Phase 9: Audio Production (Per-Scene)
 **Goal**: Script converted to per-scene TTS audio with word-level force alignment and per-scene subtitle generation, following the scene-by-scene production workflow.
