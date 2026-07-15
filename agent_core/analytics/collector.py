@@ -413,3 +413,111 @@ def collect_recent(channel: str, days: int = 30) -> list[dict]:
         return []
 
     return entries
+
+
+def run_scheduled_collection(channel: str) -> int:
+    """Dual-phase polling scheduler — checks all published videos and collects
+    analytics for those meeting the 24h (basic) or 72h+ (deep) thresholds.
+
+    Per D-13 / ANALYTICS-03: the scheduler discovers all published videos via
+    the uploads playlist, calculates days_since_publish, and triggers collection
+    at two phases:
+      - Phase 1 (24h): basic public metrics (views, likes, comments) — pick up
+        videos with days_since_publish >= 1 that haven't been collected yet
+      - Phase 2 (72h): deep metrics (CTR, AVD, retention) — pick up videos with
+        days_since_publish >= 3
+
+    The actual gating by days_since_publish is handled by collect_for_video().
+    This function provides the scheduling loop.
+
+    Args:
+        channel: Channel name (e.g. 'ChannelA').
+
+    Returns:
+        Number of videos successfully collected (could be 0).
+    """
+    count = 0
+
+    try:
+        youtube = get_authenticated_service(channel)
+
+        # Get the channel's upload playlist ID
+        channel_response = youtube.channels().list(
+            part="contentDetails",
+            mine=True,
+        ).execute()
+
+        if not channel_response.get("items"):
+            logger.warning("No channel found for %s", channel)
+            return 0
+
+        uploads_playlist_id = channel_response["items"][0][
+            "contentDetails"
+        ]["relatedPlaylists"]["uploads"]
+
+        now = datetime.now(timezone.utc)
+        scan_window_days = 90
+        next_page_token: str | None = None
+        seen_video_ids: set[str] = set()
+
+        while True:
+            request_params = {
+                "part": "snippet,contentDetails",
+                "playlistId": uploads_playlist_id,
+                "maxResults": 50,
+            }
+            if next_page_token:
+                request_params["pageToken"] = next_page_token
+
+            playlist_response = youtube.playlistItems().list(
+                **request_params
+            ).execute()
+
+            for item in playlist_response.get("items", []):
+                published_at_str = item["snippet"]["publishedAt"]
+                published_dt = datetime.fromisoformat(
+                    published_at_str.replace("Z", "+00:00")
+                )
+
+                # Skip videos older than scan window
+                if (now - published_dt).days > scan_window_days:
+                    continue
+
+                video_id = item["snippet"]["resourceId"]["videoId"]
+                if video_id in seen_video_ids:
+                    continue
+                seen_video_ids.add(video_id)
+
+                days_since_publish = (now - published_dt).days
+
+                # Skip videos less than 1 day old (data not available)
+                if days_since_publish < 1:
+                    continue
+
+                entry = collect_for_video(channel, video_id, days_since_publish)
+                if entry:
+                    try:
+                        persist_entry(channel, entry)
+                        count += 1
+                    except ValueError as e:
+                        logger.error(
+                            "Failed to persist entry for video %s: %s",
+                            video_id, e,
+                        )
+
+            next_page_token = playlist_response.get("nextPageToken")
+            if not next_page_token:
+                break
+
+    except Exception as e:
+        logger.error(
+            "Scheduled collection failed for channel %s: %s",
+            channel, e,
+        )
+        return 0
+
+    logger.info(
+        "Scheduled collection: collected %d video(s) for channel %s",
+        count, channel,
+    )
+    return count
