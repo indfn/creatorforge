@@ -323,6 +323,32 @@ def persist_entry(channel: str, entry: dict) -> Path:
     return jsonl_path
 
 
+def _get_uploads_playlist_id(youtube) -> str | None:
+    """Get the authenticated channel's upload playlist ID.
+
+    Shared helper to avoid duplicate uploads playlist fetching between
+    collect_recent() and run_scheduled_collection() (IN-04).
+
+    Args:
+        youtube: Authenticated YouTube API service instance.
+
+    Returns:
+        Uploads playlist ID string, or None if not found.
+    """
+    try:
+        channel_response = youtube.channels().list(
+            part="contentDetails",
+            mine=True,
+        ).execute()
+        if not channel_response.get("items"):
+            return None
+        return channel_response["items"][0][
+            "contentDetails"
+        ]["relatedPlaylists"]["uploads"]
+    except Exception:
+        return None
+
+
 def collect_recent(channel: str, days: int = 30) -> list[dict]:
     """Collect and persist analytics for all videos published in the last N days.
 
@@ -345,18 +371,10 @@ def collect_recent(channel: str, days: int = 30) -> list[dict]:
         youtube = get_authenticated_service(channel)
 
         # Get the channel's upload playlist ID
-        channel_response = youtube.channels().list(
-            part="contentDetails",
-            mine=True,
-        ).execute()
-
-        if not channel_response.get("items"):
-            logger.warning("No channel found for %s", channel)
+        uploads_playlist_id = _get_uploads_playlist_id(youtube)
+        if not uploads_playlist_id:
+            logger.warning("No upload playlist found for %s", channel)
             return []
-
-        uploads_playlist_id = channel_response["items"][0][
-            "contentDetails"
-        ]["relatedPlaylists"]["uploads"]
 
         # Fetch uploads via playlistItems
         now = datetime.now(timezone.utc)
@@ -442,18 +460,10 @@ def run_scheduled_collection(channel: str) -> int:
         youtube = get_authenticated_service(channel)
 
         # Get the channel's upload playlist ID
-        channel_response = youtube.channels().list(
-            part="contentDetails",
-            mine=True,
-        ).execute()
-
-        if not channel_response.get("items"):
-            logger.warning("No channel found for %s", channel)
+        uploads_playlist_id = _get_uploads_playlist_id(youtube)
+        if not uploads_playlist_id:
+            logger.warning("No upload playlist found for %s", channel)
             return 0
-
-        uploads_playlist_id = channel_response["items"][0][
-            "contentDetails"
-        ]["relatedPlaylists"]["uploads"]
 
         now = datetime.now(timezone.utc)
         scan_window_days = 90
