@@ -11,8 +11,8 @@
 - [x] **Phase 3: Test Framework & Core Unit Tests** — Set up pytest and write comprehensive unit tests for existing core logic modules ✓
 - [x] **Phase 4: CI Pipeline & Extended Tests** — Add schema validation tests, mock-based API tests, and GitHub Actions automation
 - [x] **Phase 5: Channel Onboarding & Branding** — Link a YouTube channel via OAuth, set channel description/tags, upload avatar/banner/watermark, and configure default upload settings so the channel is ready for content
-- [ ] **Phase 6: YouTube Publishing** — Upload videos with full metadata (category, language, playlist, chapters, audience settings), SEO title/desc/tags, thumbnail, pin comment, and post-hoc updates
-- [ ] **Phase 7: Analytics Collection & Storage** — Dual-phase polling (24h basic + 72h deep), schema-validated persistence
+- [x] **Phase 6: YouTube Publishing** — Upload videos with full metadata (category, language, playlist, chapters, audience settings), SEO title/desc/tags, thumbnail, pin comment, and post-hoc updates ✓
+- [x] **Phase 7: Analytics Collection & Storage** — Dual-phase polling (24h basic + 72h deep), schema-validated persistence ✓
 - [ ] **Phase 8: Brain Evolution Loop** — Evolve agent brain learning weights from real performance data to close the content strategy feedback loop
 - [ ] **Phase 9: Audio Production (Per-Scene)** — Per-scene TTS + force alignment + subtitle generation, temp asset management
 - [ ] **Phase 10: Visual Asset Pipeline (Consistent + Temp)** — Consistent/temp split, stock API sourcing, character SVGs, global + channel library
@@ -154,11 +154,15 @@ Plans:
 **Depends on**: Phase 6 (needs published videos to collect analytics)
 **Requirements**: ANALYTICS-01, ANALYTICS-02, ANALYTICS-06
 **Success Criteria** (what must be TRUE):
-   1. Basic public metrics (view count) polled 24 hours post-publish to assess initial velocity
-   2. Deep analytical metrics (CTR, AVD, audience retention) exclusively polled after a mandatory 72-hour delay since video's public publish timestamp — YouTube Analytics API requires 48-72h to stabilize retention data
-   3. Each video's analytics entry stored as JSONL with schema-validated fields split by tier (basic at 24h, full at 72h)
-   4. Aggregate functions in `analytics/insights.py` compile metrics across channels: averages, trends, and comparative rankings
-**Plans**: TBD
+    1. Basic public metrics (view count) polled 24 hours post-publish to assess initial velocity
+    2. Deep analytical metrics (CTR, AVD, audience retention) exclusively polled after a mandatory 72-hour delay since video's public publish timestamp — YouTube Analytics API requires 48-72h to stabilize retention data
+    3. Each video's analytics entry stored as JSONL with schema-validated fields split by tier (basic at 24h, full at 72h)
+    4. Aggregate functions in `analytics/insights.py` compile metrics across channels: averages, trends, and comparative rankings
+**Plans**: 2 plans (both complete)
+
+Plans:
+- [x] 07-01-PLAN.md — Analytics Collector: collect_for_video, collect_recent, persist_entry, thin CLI (ANALYTICS-01, 02)
+- [x] 07-02-PLAN.md — Analytics Insights: per-channel stats, cross-channel comparison (ANALYTICS-06)
 
 ### Phase 8: Brain Evolution Loop
 **Goal**: The agent brain automatically evolves its learning weights from real performance data, closing the content strategy feedback loop.
