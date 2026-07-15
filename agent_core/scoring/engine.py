@@ -67,7 +67,7 @@ def load_brain_context(channel: str | None = None) -> dict:
             "competitor_handles": [],
         }
 
-    with open(brain_path) as f:
+    with open(brain_path, "r", encoding="utf-8") as f:
         brain = json.load(f)
 
     icp = brain.get("icp", {})
