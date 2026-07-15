@@ -8,9 +8,9 @@ Read-only on agent-brain.json.
 import json
 import re
 from pathlib import Path
-from typing import Dict, List, Optional
 
 BRAIN_FILE = Path(__file__).parent.parent / "data" / "agent-brain.json"
+CHANNELS_BASE = Path(__file__).parent.parent.parent / "channels"
 
 # Action keywords that indicate demonstrable/tutorial content
 ACTION_KEYWORDS = [
@@ -26,9 +26,21 @@ OPINION_KEYWORDS = [
 ]
 
 
-def load_brain_context() -> Dict:
+def _validate_channel_name(name: str) -> None:
+    """Reject channel names with path traversal characters."""
+    if not re.match(r'^[a-zA-Z0-9_-]+$', name):
+        raise ValueError(f"Invalid channel name: {name!r}")
+
+
+def load_brain_context(channel: str | None = None) -> dict:
     """
-    Read agent-brain.json and return structured context for scoring.
+    Read brain context from a channel-specific or global brain.json.
+
+    Args:
+        channel: Optional channel name. If provided, reads
+            ``channels/{channel}/brain.json`` instead of the global
+            ``agent_core/data/agent-brain.json``. Channel names are
+            validated against ``^[a-zA-Z0-9_-]+$`` to prevent path traversal.
 
     Returns dict with:
         icp_keywords: flattened list from icp.pain_points + goals + segments
@@ -36,7 +48,13 @@ def load_brain_context() -> Dict:
         learning_weights: the 4 weight values
         competitor_handles: list of competitor handles
     """
-    if not BRAIN_FILE.exists():
+    if channel is not None:
+        _validate_channel_name(channel)
+        brain_path = CHANNELS_BASE / channel / "brain.json"
+    else:
+        brain_path = BRAIN_FILE
+
+    if not brain_path.exists():
         return {
             "icp_keywords": [],
             "pillar_keywords": {},
@@ -49,7 +67,7 @@ def load_brain_context() -> Dict:
             "competitor_handles": [],
         }
 
-    with open(BRAIN_FILE, "r") as f:
+    with open(brain_path) as f:
         brain = json.load(f)
 
     icp = brain.get("icp", {})
@@ -90,7 +108,7 @@ def _tokenize(text: str) -> str:
     return text.lower()
 
 
-def _count_keyword_matches(text: str, keywords: List[str]) -> int:
+def _count_keyword_matches(text: str, keywords: list[str]) -> int:
     """
     Count how many keywords appear in the text.
     Uses partial/stem matching — 'automation' matches 'automate'.
@@ -108,7 +126,7 @@ def _count_keyword_matches(text: str, keywords: List[str]) -> int:
     return matches
 
 
-def _extract_stems(text: str) -> List[str]:
+def _extract_stems(text: str) -> list[str]:
     """
     Extract matchable stems from a keyword or phrase.
     For phrases like 'scale revenue without adding headcount',
@@ -122,7 +140,7 @@ def _extract_stems(text: str) -> List[str]:
     return words
 
 
-def _count_pain_point_matches(text: str, pain_points: List[str]) -> int:
+def _count_pain_point_matches(text: str, pain_points: list[str]) -> int:
     """Count how many distinct pain points are referenced in text."""
     text_lower = _tokenize(text)
     matched = 0
@@ -135,7 +153,7 @@ def _count_pain_point_matches(text: str, pain_points: List[str]) -> int:
     return matched
 
 
-def score_icp_relevance(text: str, brain_ctx: Dict) -> int:
+def score_icp_relevance(text: str, brain_ctx: dict) -> int:
     """
     Score ICP relevance (1-10) based on keyword overlap with brain ICP data.
 
@@ -173,7 +191,7 @@ def score_icp_relevance(text: str, brain_ctx: Dict) -> int:
     return score
 
 
-def score_content_gap(text: str, brain_ctx: Dict) -> int:
+def score_content_gap(text: str, brain_ctx: dict) -> int:
     """
     Score content gap (1-10). Base heuristic — /analyze refines later.
 
@@ -184,7 +202,7 @@ def score_content_gap(text: str, brain_ctx: Dict) -> int:
     text_lower = _tokenize(text)
 
     # Check if topic matches pillar keywords (indicates niche relevance)
-    for pillar_name, keywords in brain_ctx.get("pillar_keywords", {}).items():
+    for _pillar_name, keywords in brain_ctx.get("pillar_keywords", {}).items():
         for kw in keywords:
             if kw.lower() in text_lower:
                 score = min(score + 2, 10)
@@ -218,7 +236,7 @@ def score_proof_potential(text: str) -> int:
         return 8
 
 
-def apply_competitor_bonuses(scores: Dict, views: int) -> Dict:
+def apply_competitor_bonuses(scores: dict, views: int) -> dict:
     """
     Apply competitor validation bonuses to scores.
 
@@ -237,7 +255,7 @@ def apply_competitor_bonuses(scores: Dict, views: int) -> Dict:
     return scores
 
 
-def calculate_weighted_total(scores: Dict, weights: Dict) -> float:
+def calculate_weighted_total(scores: dict, weights: dict) -> float:
     """
     Calculate weighted total from scores and learning weights.
 
@@ -258,7 +276,8 @@ def score_topic(
     views: int = 0,
     timeliness: int = 6,
     is_competitor: bool = False,
-) -> Dict:
+    channel: str | None = None,
+) -> dict:
     """
     Orchestrator: score a topic against the agent brain.
 
@@ -268,15 +287,17 @@ def score_topic(
         views: View count (for competitor bonus calculation)
         timeliness: Timeliness score (1-10), provided by caller
         is_competitor: Whether this is from competitor analysis
+        channel: Optional channel name for per-channel brain weights.
+            Passed through to ``load_brain_context()``.
 
     Returns:
         Scoring dict matching topic.schema.json scoring object:
         {icp_relevance, timeliness, content_gap, proof_potential, total, weighted_total}
     """
-    brain_ctx = load_brain_context()
+    brain_ctx = load_brain_context(channel=channel)
     text = f"{title} {description}"
 
-    scores = {
+    scores: dict[str, int | float] = {
         "icp_relevance": score_icp_relevance(text, brain_ctx),
         "timeliness": timeliness,
         "content_gap": score_content_gap(text, brain_ctx),
