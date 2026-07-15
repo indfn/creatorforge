@@ -465,3 +465,156 @@ class TestLoadBrainContext:
 
         result = engine.load_brain_context()
         assert result["competitor_handles"] == []
+
+    # ── Channel-aware brain loading tests ─────────────────────────────
+
+    def test_channel_loading_uses_channel_path(self, monkeypatch, tmp_path):
+        """load_brain_context(channel='X') reads from channels/X/brain.json."""
+        channel_name = "TestChan"
+        channel_dir = tmp_path / channel_name
+        channel_dir.mkdir(parents=True)
+        brain_data = {
+            "icp": {
+                "pain_points": ["channel-specific pain"],
+                "goals": ["channel goal"],
+                "segments": ["channel segment"],
+            },
+            "pillars": [
+                {"name": "Channel Pillar", "keywords": ["ch-keyword"]},
+            ],
+            "learning_weights": {
+                "icp_relevance": 2.0,
+                "timeliness": 1.5,
+                "content_gap": 0.5,
+                "proof_potential": 0.0,
+            },
+            "competitors": [{"handle": "@ChannelComp"}],
+        }
+        (channel_dir / "brain.json").write_text(json.dumps(brain_data))
+        monkeypatch.setattr(engine, "CHANNELS_BASE", tmp_path)
+
+        result = engine.load_brain_context(channel=channel_name)
+        assert "channel-specific pain" in result["icp_keywords"]
+        assert "channel goal" in result["icp_keywords"]
+        assert "channel segment" in result["icp_keywords"]
+        assert "Channel Pillar" in result["pillar_keywords"]
+        assert result["pillar_keywords"]["Channel Pillar"] == ["ch-keyword"]
+        assert result["learning_weights"]["icp_relevance"] == 2.0
+        assert result["learning_weights"]["proof_potential"] == 0.0
+        assert "channelcomp" in result["competitor_handles"]
+
+    def test_channel_loading_missing_file_returns_defaults(self, monkeypatch, tmp_path):
+        """load_brain_context(channel='Missing') returns defaults when file missing."""
+        monkeypatch.setattr(engine, "CHANNELS_BASE", tmp_path)
+        result = engine.load_brain_context(channel="MissingChan")
+        assert result["icp_keywords"] == []
+        assert result["pillar_keywords"] == {}
+        assert result["learning_weights"] == {
+            "icp_relevance": 1.0,
+            "timeliness": 1.0,
+            "content_gap": 1.0,
+            "proof_potential": 1.0,
+        }
+        assert result["competitor_handles"] == []
+
+    def test_channel_loading_passes_validation(self, monkeypatch, tmp_path):
+        """Valid channel names work (no ValueError)."""
+        monkeypatch.setattr(engine, "CHANNELS_BASE", tmp_path)
+        # File doesn't exist, so should return defaults — not raise ValueError
+        result = engine.load_brain_context(channel="valid-name_123")
+        assert result["icp_keywords"] == []
+
+    def test_channel_loading_path_traversal_rejected(self):
+        """Channel name with '../' raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid channel name"):
+            engine.load_brain_context(channel="../etc")
+
+    def test_channel_loading_with_special_chars_rejected(self):
+        """Channel name with special characters raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid channel name"):
+            engine.load_brain_context(channel="channel/name")
+
+        with pytest.raises(ValueError, match="Invalid channel name"):
+            engine.load_brain_context(channel="channel\\name")
+
+        with pytest.raises(ValueError, match="Invalid channel name"):
+            engine.load_brain_context(channel="channel.name")
+
+    def test_no_channel_still_uses_global(self, monkeypatch, tmp_path):
+        """load_brain_context() with no channel still reads BRAIN_FILE."""
+        fake_brain = tmp_path / "agent-brain.json"
+        brain_data = {
+            "icp": {"pain_points": ["global pain"], "goals": [], "segments": []},
+            "pillars": [],
+            "learning_weights": {"icp_relevance": 3.0, "timeliness": 1.0, "content_gap": 1.0, "proof_potential": 1.0},
+            "competitors": [],
+        }
+        fake_brain.write_text(json.dumps(brain_data))
+        monkeypatch.setattr(engine, "BRAIN_FILE", fake_brain)
+
+        result = engine.load_brain_context()
+        assert "global pain" in result["icp_keywords"]
+        assert result["learning_weights"]["icp_relevance"] == 3.0
+
+
+# ── Score Topic channel passthrough tests ──────────────────────────
+
+
+class TestScoreTopicChannel:
+    """Test score_topic channel passthrough."""
+
+    def test_channel_passthrough_to_engine(self, monkeypatch):
+        """score_topic with channel passes channel to load_brain_context."""
+        captured = {}
+
+        def mock_load_brain_context(channel=None):
+            captured["channel"] = channel
+            return brain_ctx
+
+        monkeypatch.setattr(engine, "load_brain_context", mock_load_brain_context)
+        engine.score_topic("test", "test", channel="ChannelA")
+        assert captured["channel"] == "ChannelA"
+
+    def test_no_channel_passes_none(self, monkeypatch):
+        """score_topic without channel passes None to load_brain_context."""
+        captured = {}
+
+        def mock_load_brain_context(channel=None):
+            captured["channel"] = channel
+            return brain_ctx
+
+        monkeypatch.setattr(engine, "load_brain_context", mock_load_brain_context)
+        engine.score_topic("test", "test")
+        assert captured["channel"] is None
+
+    def test_channel_scores_differ_with_different_weights(self, monkeypatch, tmp_path):
+        """score_topic with channel uses that channel's weights for weighted_total."""
+        monkeypatch.setattr(engine, "CHANNELS_BASE", tmp_path)
+
+        # Create a channel brain with different weights
+        chan_dir = tmp_path / "WeightChan"
+        chan_dir.mkdir(parents=True)
+        chan_brain = {
+            "icp": {"pain_points": ["automation"], "goals": [], "segments": []},
+            "pillars": [],
+            "learning_weights": {"icp_relevance": 10.0, "timeliness": 1.0, "content_gap": 1.0, "proof_potential": 1.0},
+            "competitors": [],
+        }
+        (chan_dir / "brain.json").write_text(json.dumps(chan_brain))
+
+        # Create a global brain with different weights
+        fake_brain = tmp_path / "agent-brain.json"
+        global_brain = {
+            "icp": {"pain_points": ["automation"], "goals": [], "segments": []},
+            "pillars": [],
+            "learning_weights": {"icp_relevance": 1.0, "timeliness": 1.0, "content_gap": 1.0, "proof_potential": 1.0},
+            "competitors": [],
+        }
+        fake_brain.write_text(json.dumps(global_brain))
+        monkeypatch.setattr(engine, "BRAIN_FILE", fake_brain)
+
+        # With channel (icp_relevance weight=10.0) vs without (weight=1.0)
+        chan_result = engine.score_topic("build automation", "test", channel="WeightChan")
+        global_result = engine.score_topic("build automation", "test")
+        # weighted_total should differ because weights differ
+        assert chan_result["weighted_total"] != global_result["weighted_total"]
