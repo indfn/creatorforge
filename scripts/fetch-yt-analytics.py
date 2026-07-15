@@ -1,41 +1,30 @@
 #!/usr/bin/env python3
 """
-Fetch per-video YouTube analytics (CTR, watch time, subscribers gained).
+Fetch per-video YouTube analytics — thin CLI wrapper.
 
-Combines:
-  - YouTube Data API v3 (views, likes, comments, duration, thumbnail)
-  - YouTube Analytics API (CTR, avg view duration, watch time, subs gained)
-
-Auto-detects format from video duration:
-  > 180s = youtube_longform, <= 180s = youtube_shorts
+Delegates all API logic to agent_core.analytics.collector.
 
 Usage:
-  python scripts/fetch-yt-analytics.py --video-id VIDEO_ID
-  python scripts/fetch-yt-analytics.py --video-id VIDEO_ID --json  # raw JSON output
-
-Requires:
-  - YOUTUBE_DATA_API_KEY in .env
-  - OAuth token at ~/.creatorforge/yt-token.json (run setup-yt-oauth.py first)
+  python scripts/fetch-yt-analytics.py --channel ChannelA --video-id VIDEO_ID
+  python scripts/fetch-yt-analytics.py --channel ChannelA --video-id VIDEO_ID --json
+  python scripts/fetch-yt-analytics.py --channel ChannelA --recent
+  python scripts/fetch-yt-analytics.py --channel ChannelA --recent --days 60
 """
 
 import argparse
 import json
-import os
-import re
 import sys
-from datetime import datetime
 from pathlib import Path
 
-try:
-    import requests
-except ImportError:
-    print("Missing dependency: pip install requests")
-    sys.exit(1)
+from agent_core.analytics.collector import (
+    collect_for_video,
+    collect_recent,
+    persist_entry,
+)
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 ENV_PATH = PROJECT_ROOT / ".env"
-TOKEN_PATH = Path.home() / ".creatorforge" / "yt-token.json"
 
 
 def load_env():
@@ -45,221 +34,168 @@ def load_env():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, _, value = line.partition("=")
+                import os
                 os.environ.setdefault(key.strip(), value.strip())
 
 
-def get_oauth_token():
-    """Load and refresh OAuth token if needed."""
-    if not TOKEN_PATH.exists():
-        return None
+def _print_entry(entry: dict):
+    """Print a human-friendly summary of an analytics entry."""
+    metrics = entry.get("metrics", {})
 
-    try:
-        token_data = json.loads(TOKEN_PATH.read_text())
-    except (json.JSONDecodeError, OSError) as e:
-        print(f"Warning: Could not read token file: {e}", file=sys.stderr)
-        return None
+    print(f"Video: {entry.get('content_id', '?')}")
+    print(f"Published: {entry.get('published_at', '?')}")
+    print(f"Analyzed: {entry.get('analyzed_at', '?')}")
+    print(f"Days since publish: {entry.get('days_since_publish', '?')}")
 
-    try:
-        from google.oauth2.credentials import Credentials
-        from google.auth.transport.requests import Request
+    views = metrics.get("views")
+    if isinstance(views, int):
+        print(f"Views: {views:,}")
+    else:
+        print(f"Views: {views}")
 
-        creds = Credentials(
-            token=token_data["token"],
-            refresh_token=token_data["refresh_token"],
-            token_uri=token_data["token_uri"],
-            client_id=token_data["client_id"],
-            client_secret=token_data["client_secret"],
-            scopes=token_data.get("scopes"),
-        )
+    likes = metrics.get("likes")
+    if isinstance(likes, int):
+        print(f"Likes: {likes:,}")
+    else:
+        print(f"Likes: {likes}")
 
-        if creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-            token_data["token"] = creds.token
-            TOKEN_PATH.write_text(json.dumps(token_data, indent=2))
+    comments = metrics.get("comments")
+    if isinstance(comments, int):
+        print(f"Comments: {comments:,}")
+    else:
+        print(f"Comments: {comments}")
 
-        return creds.token
-    except Exception as e:
-        print(f"Warning: OAuth token refresh failed: {e}", file=sys.stderr)
-        return token_data.get("token")  # safe — token_data is always defined here
+    # Deep metrics if available
+    impressions = metrics.get("impressions")
+    if impressions is not None:
+        print(f"Impressions: {impressions:,}")
 
+    ctr = metrics.get("ctr")
+    if ctr is not None:
+        print(f"CTR: {ctr:.2f}%")
 
-def parse_iso8601_duration(duration_str):
-    """Parse ISO 8601 duration (PT2M45S) to seconds."""
-    match = re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?", duration_str)
-    if not match:
-        return 0
-    hours = int(match.group(1) or 0)
-    minutes = int(match.group(2) or 0)
-    seconds = int(match.group(3) or 0)
-    return hours * 3600 + minutes * 60 + seconds
+    avg_view_duration = metrics.get("avg_view_duration")
+    if avg_view_duration is not None:
+        mins = int(avg_view_duration) // 60
+        secs = int(avg_view_duration) % 60
+        print(f"Avg View Duration: {mins}:{secs:02d}")
 
+    avg_view_percentage = metrics.get("avg_view_percentage")
+    if avg_view_percentage is not None:
+        print(f"Avg View %: {avg_view_percentage:.1f}%")
 
-def fetch_data_api(video_id, api_key):
-    """Fetch video metadata from YouTube Data API v3."""
-    url = "https://www.googleapis.com/youtube/v3/videos"
-    params = {
-        "part": "statistics,snippet,contentDetails",
-        "id": video_id,
-        "key": api_key,
-    }
-    resp = requests.get(url, params=params, timeout=15)
-    resp.raise_for_status()
-    data = resp.json()
+    shares = metrics.get("shares")
+    if shares is not None:
+        print(f"Shares: {shares:,}")
 
-    if not data.get("items"):
-        return None
+    subs_gained = metrics.get("subscribers_gained")
+    if subs_gained is not None:
+        print(f"Subs Gained: {subs_gained}")
 
-    item = data["items"][0]
-    stats = item.get("statistics", {})
-    snippet = item.get("snippet", {})
-    content = item.get("contentDetails", {})
+    engagement_rate = metrics.get("engagement_rate")
+    if engagement_rate is not None:
+        print(f"Engagement Rate: {engagement_rate:.2f}%")
 
-    duration_sec = parse_iso8601_duration(content.get("duration", "PT0S"))
-
-    # Thumbnail fallback chain
-    thumbs = snippet.get("thumbnails", {})
-    thumbnail_url = None
-    for size in ["maxres", "high", "medium", "default"]:
-        if size in thumbs:
-            thumbnail_url = thumbs[size]["url"]
-            break
-
-    return {
-        "title": snippet.get("title"),
-        "published_at": snippet.get("publishedAt"),
-        "duration_seconds": duration_sec,
-        "format": "youtube_longform" if duration_sec > 180 else "youtube_shorts",
-        "views": int(stats.get("viewCount", 0)),
-        "likes": int(stats.get("likeCount", 0)),
-        "comments": int(stats.get("commentCount", 0)),
-        "thumbnail_url": thumbnail_url,
-    }
-
-
-def fetch_analytics_api(video_id, published_at, oauth_token):
-    """Fetch per-video analytics from YouTube Analytics API."""
-    if not oauth_token:
-        return {}
-
-    # Parse published date for startDate
-    pub_date = published_at[:10] if published_at else "2020-01-01"
-    end_date = datetime.utcnow().strftime("%Y-%m-%d")
-
-    url = "https://youtubeanalytics.googleapis.com/v2/reports"
-    params = {
-        "ids": "channel==MINE",
-        "startDate": pub_date,
-        "endDate": end_date,
-        "metrics": "estimatedMinutesWatched,averageViewDuration,subscribersGained",
-        "filters": f"video=={video_id}",
-    }
-    headers = {"Authorization": f"Bearer {oauth_token}"}
-
-    try:
-        resp = requests.get(url, params=params, headers=headers, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-
-        rows = data.get("rows", [])
-        if not rows:
-            return {}
-
-        row = rows[0]
-        return {
-            "estimated_minutes_watched": row[0] if len(row) > 0 else None,
-            "avg_view_duration": row[1] if len(row) > 1 else None,
-            "subscribers_gained": row[2] if len(row) > 2 else None,
-        }
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 403:
-            print("Warning: YouTube Analytics API not enabled or not authorized.", file=sys.stderr)
-            print("Run: python scripts/setup-yt-oauth.py", file=sys.stderr)
-        else:
-            print(f"Warning: YouTube Analytics API error: {e}", file=sys.stderr)
-        return {}
-    except Exception as e:
-        print(f"Warning: YouTube Analytics API error: {e}", file=sys.stderr)
-        return {}
+    print(f"Collection: {entry.get('collection_method', '?')}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Fetch YouTube video analytics")
-    parser.add_argument("--video-id", required=True, help="YouTube video ID")
-    parser.add_argument("--json", action="store_true", help="Output raw JSON")
+    parser = argparse.ArgumentParser(
+        description="Fetch per-video YouTube analytics via the collector module",
+    )
+    parser.add_argument(
+        "--channel",
+        required=True,
+        help="Channel name (e.g. ChannelA)",
+    )
+
+    # Single video mode
+    parser.add_argument(
+        "--video-id",
+        help="YouTube video ID to collect analytics for",
+    )
+    parser.add_argument(
+        "--days-since-publish",
+        type=int,
+        default=1,
+        help="Days since video was published (default: 1, >= 3 for deep metrics)",
+    )
+
+    # Batch mode
+    parser.add_argument(
+        "--recent",
+        action="store_true",
+        help="Collect and persist analytics for all videos published in the last N days",
+    )
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=30,
+        help="How many days back to scan (default: 30, used with --recent)",
+    )
+
+    # Output
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output raw JSON (single video mode) or JSON array (recent mode)",
+    )
+
     args = parser.parse_args()
-
     load_env()
-    api_key = os.environ.get("YOUTUBE_DATA_API_KEY")
-    if not api_key or api_key == "your_youtube_data_api_key_here":
-        print("ERROR: YOUTUBE_DATA_API_KEY not set in .env")
+
+    # Validate mutual exclusivity
+    if args.video_id and args.recent:
+        print("ERROR: Use --video-id OR --recent, not both.", file=sys.stderr)
         sys.exit(1)
 
-    # Fetch Data API (always available)
-    data_result = fetch_data_api(args.video_id, api_key)
-    if not data_result:
-        print(f"ERROR: Video not found: {args.video_id}")
+    if not args.video_id and not args.recent:
+        print("ERROR: Provide --video-id VIDEO_ID or --recent.", file=sys.stderr)
         sys.exit(1)
 
-    # Fetch Analytics API (requires OAuth)
-    oauth_token = get_oauth_token()
-    analytics_result = {}
-    if oauth_token:
-        analytics_result = fetch_analytics_api(
-            args.video_id, data_result["published_at"], oauth_token
+    if args.video_id:
+        # ---- Single video mode ----
+        entry = collect_for_video(
+            args.channel,
+            args.video_id,
+            args.days_since_publish,
         )
+        if entry is None:
+            print(
+                f"No analytics available for video {args.video_id}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
-    # Merge results
-    result = {
-        "video_id": args.video_id,
-        "title": data_result["title"],
-        "published_at": data_result["published_at"],
-        "format": data_result["format"],
-        "duration_seconds": data_result["duration_seconds"],
-        "thumbnail_url": data_result["thumbnail_url"],
-        "metrics": {
-            "views": data_result["views"],
-            "likes": data_result["likes"],
-            "comments": data_result["comments"],
-        },
-        "analytics_api_available": bool(oauth_token and analytics_result),
-    }
+        # Persist
+        path = persist_entry(args.channel, entry)
 
-    # Add Analytics API metrics if available
-    if analytics_result:
-        if analytics_result.get("avg_view_duration") is not None:
-            result["metrics"]["avg_view_duration"] = analytics_result["avg_view_duration"]
-        if analytics_result.get("estimated_minutes_watched") is not None:
-            result["metrics"]["estimated_minutes_watched"] = analytics_result["estimated_minutes_watched"]
-        if analytics_result.get("subscribers_gained") is not None:
-            result["metrics"]["subscribers_gained"] = int(analytics_result["subscribers_gained"])
-
-    # CTR note: not available via Analytics API, requires Studio
-    result["metrics"]["ctr"] = None
-    result["ctr_note"] = "CTR not available via API — requires YouTube Studio input"
-
-    if args.json:
-        print(json.dumps(result, indent=2))
-    else:
-        print(f"Video: {result['title']}")
-        print(f"Format: {result['format']} ({result['duration_seconds']}s)")
-        print(f"Published: {result['published_at']}")
-        print(f"Views: {result['metrics']['views']:,}")
-        print(f"Likes: {result['metrics']['likes']:,}")
-        print(f"Comments: {result['metrics']['comments']:,}")
-        if result["metrics"].get("avg_view_duration"):
-            mins = int(result["metrics"]["avg_view_duration"]) // 60
-            secs = int(result["metrics"]["avg_view_duration"]) % 60
-            print(f"Avg View Duration: {mins}:{secs:02d}")
-        if result["metrics"].get("estimated_minutes_watched"):
-            print(f"Total Watch Time: {result['metrics']['estimated_minutes_watched']:,.0f} minutes")
-        if result["metrics"].get("subscribers_gained") is not None:
-            print(f"Subscribers Gained: {result['metrics']['subscribers_gained']}")
-        if result["analytics_api_available"]:
-            print("\n[YouTube Analytics API: active]")
+        if args.json:
+            print(json.dumps(entry, indent=2))
         else:
-            print("\n[YouTube Analytics API: not configured — run setup-yt-oauth.py for CTR/subs/watch time]")
+            _print_entry(entry)
+            print(f"\n[Persisted to {path}]")
 
-    return result
+    elif args.recent:
+        # ---- Batch mode ----
+        entries = collect_recent(args.channel, args.days)
+        if not entries:
+            print(
+                f"No analytics collected in the last {args.days} days.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        if args.json:
+            print(json.dumps(entries, indent=2))
+        else:
+            for entry in entries:
+                _print_entry(entry)
+                print()
+            print(
+                f"Collected analytics for {len(entries)} video(s) "
+                f"in the last {args.days} days."
+            )
 
 
 if __name__ == "__main__":
