@@ -168,7 +168,14 @@ def main():
             sys.exit(1)
 
         # Persist
-        path = persist_entry(args.channel, entry)
+        try:
+            path = persist_entry(args.channel, entry)
+        except ValueError as e:
+            print(
+                f"ERROR: Failed to persist analytics entry: {e}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
         if args.json:
             print(json.dumps(entry, indent=2))
