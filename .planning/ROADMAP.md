@@ -173,7 +173,11 @@ Plans:
    2. Brain weight updater transforms learning weights by calculating performance ratios from analytics (ICP relevance, timeliness, etc.)
    3. Updated brain weights are integrated into the scoring engine so future topic scores reflect learned performance patterns
    4. Weight updates only trigger after minimum 3 videos per content pillar to prevent overfitting to noise
-**Plans**: TBD
+**Plans**: 2+ plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Brain updater & scheduler: update_weights, update_hook_preferences, update_performance_patterns, update_brain, run_scheduled_collection (ANALYTICS-03, 04, 07)
+- [ ] 08-02-PLAN.md — Scoring engine integration: channel-aware brain loading, scoring with updated weights (ANALYTICS-05)
 
 ### Phase 9: Audio Production (Per-Scene)
 **Goal**: Script converted to per-scene TTS audio with word-level force alignment and per-scene subtitle generation, following the scene-by-scene production workflow.
@@ -269,7 +273,7 @@ Phase 1 (Foundation & Pipeline)
 | 5. Channel Onboarding & Branding | 0/3 | Planning | - |
 | 6. YouTube Publishing | 0/– | Not started | - |
 | 7. Analytics Collection & Storage | 0/– | Not started | - |
-| 8. Brain Evolution Loop | 0/– | Not started | - |
+| 8. Brain Evolution Loop | 1 plan created | Planning | - |
 | 9. Audio Production (Per-Scene) | 0/– | Not started | - |
 | 10. Visual Asset Pipeline (Consistent+Temp) | 0/– | Not started | - |
 | 11. Scene Assembly & Final Render | 0/– | Not started | - |

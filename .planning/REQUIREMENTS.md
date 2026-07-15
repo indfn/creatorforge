@@ -69,11 +69,14 @@
 
 - [x] **ANALYTICS-01**: Implement 24h-delayed analytics collection per video (YouTube Data + Analytics APIs)
 - [x] **ANALYTICS-02**: Persist analytics entries as JSONL with proper schema
-- [ ] **ANALYTICS-03**: Implement dual-phase polling — basic public metrics at 24h, deep behavioral metrics (CTR, AVD, retention) at mandatory 72h delay (YouTube Analytics requires 48-72h to stabilize)
-- [ ] **ANALYTICS-04**: Implement brain weight updater: transform learning weights from performance data
+- [x] **ANALYTICS-03
+**: Implement dual-phase polling — basic public metrics at 24h, deep behavioral metrics (CTR, AVD, retention) at mandatory 72h delay (YouTube Analytics requires 48-72h to stabilize)
+- [x] **ANALYTICS-04
+**: Implement brain weight updater: transform learning weights from performance data
 - [ ] **ANALYTICS-05**: Integrate updated brain weights into scoring engine pipeline
 - [x] **ANALYTICS-06**: Implement `analytics/insights.py` aggregate functions
-- [ ] **ANALYTICS-07**: Implement `analytics/brain_updater.py` evolution protocol
+- [x] **ANALYTICS-07
+**: Implement `analytics/brain_updater.py` evolution protocol
 
 ### Audio Production (PROD-AUDIO)
 
