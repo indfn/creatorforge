@@ -36,10 +36,8 @@ NUMERIC_METRICS: list[str] = [
     "saves",
     "subscribers_gained",
     "ctr",
-    "retention_30s",
     "avg_view_duration",
     "avg_view_percentage",
-    "completion_rate",
     "engagement_rate",
 ]
 
