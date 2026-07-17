@@ -216,9 +216,9 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 10-01-PLAN.md — Foundation: Base ABC, Storage, Cache, Search (Wave 1)
+- [x] 10-01-PLAN.md — Foundation: Base ABC, Storage, Cache, Search (Wave 1)
 - [x] 10-02-PLAN.md — Characters: CharacterResolver with variant lookup (Wave 2)
-- [ ] 10-03-PLAN.md — Providers: Pexels, Pixabay, Freesound + fallback chain (Wave 2)
+- [x] 10-03-PLAN.md — Providers: Pexels, Pixabay, Freesound + fallback chain (Wave 2)
 - [ ] 10-04-PLAN.md — Module exports + dependency cleanup (Wave 3)
 
 ### Phase 11: Scene Assembly & Final Render

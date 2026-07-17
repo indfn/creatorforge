@@ -89,14 +89,13 @@
 
 ### Visual Asset Pipeline (PROD-VISUAL)
 
-- [ ] **PROD-VISUAL-01**: Implement Pexels API asset scraping for B-roll footage with caching
-- [ ] **PROD-VISUAL-02**: Implement Pixabay API as Pexels fallback for images/video
-- [ ] **PROD-VISUAL-03**: Implement Freesound API SFX scraping with content-based search
-- [ ] **PROD-VISUAL-04**: Split asset storage into consistent (reusable) vs temp (per-video) — consistent at `assets/consistent/`, temp at `channels/{Name}/active_production/`
-- [ ] **PROD-VISUAL-05**: Implement global consistent asset library at `assets/consistent/global/` with channel overrides at `channels/{Name}/assets/`
-- [x] **PROD-VISUAL-06**: Support character SVG models as first-class consistent assets — load, cache, reference across scenes and channels
-- [ ] **PROD-VISUAL-07**: Build asset cache layer (SQLite-backed, TTL-based eviction) for consistent and stock assets
-- [ ] **PROD-VISUAL-08**: Handle rate limits and API quota for all stock providers
+- [x] **PROD-VISUAL-01**: Implement Pexels API asset scraping for B-roll footage with caching
+
+- [x] **PROD-VISUAL-02**: Implement Pixabay API as Pexels fallback for images/video
+
+- [x] **PROD-VISUAL-03**: Implement Freesound API SFX scraping with content-based search
+
+- [x] **PROD-VISUAL-08**: Handle rate limits and API quota for all stock providers
 - [ ] **PROD-VISUAL-09**: Remove unused commented-out dependencies for Pillow/matplotlib (or move to extras)
 
 ### Scene Assembly & Final Render (PROD-RENDER)
