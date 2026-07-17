@@ -93,6 +93,19 @@ class AssetCache:
             """)
 
     # ------------------------------------------------------------------
+    # Timestamp helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _now() -> str:
+        """Return the current UTC time as an ISO-format string.
+
+        Uses the same format as :meth:`set` for ``expires_at`` so string
+        comparisons are consistent.
+        """
+        return datetime.now(timezone.utc).isoformat()
+
+    # ------------------------------------------------------------------
     # Core CRUD
     # ------------------------------------------------------------------
 
@@ -110,11 +123,12 @@ class AssetCache:
         with self._lock:
             with sqlite3.connect(str(self.db_path)) as conn:
                 conn.row_factory = sqlite3.Row
+                now = self._now()
                 row = conn.execute(
                     "SELECT * FROM cache_entries "
                     "WHERE asset_type=? AND source_url=? "
-                    "AND (expires_at IS NULL OR expires_at > datetime('now'))",
-                    (asset_type, source_url),
+                    "AND (expires_at IS NULL OR expires_at > ?)",
+                    (asset_type, source_url, now),
                 ).fetchone()
 
                 if row is None:
@@ -211,10 +225,12 @@ class AssetCache:
         """
         with self._lock:
             with sqlite3.connect(str(self.db_path)) as conn:
+                now = self._now()
                 cursor = conn.execute(
                     "DELETE FROM cache_entries "
                     "WHERE expires_at IS NOT NULL "
-                    "AND expires_at < datetime('now')"
+                    "AND expires_at < ?",
+                    (now,),
                 )
                 deleted = cursor.rowcount
                 logger.info("Evicted %d expired cache entries", deleted)
