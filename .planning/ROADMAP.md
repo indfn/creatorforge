@@ -13,10 +13,10 @@
 - [x] **Phase 5: Channel Onboarding & Branding** — Link a YouTube channel via OAuth, set channel description/tags, upload avatar/banner/watermark, and configure default upload settings so the channel is ready for content
 - [x] **Phase 6: YouTube Publishing** — Upload videos with full metadata (category, language, playlist, chapters, audience settings), SEO title/desc/tags, thumbnail, pin comment, and post-hoc updates ✓
 - [x] **Phase 7: Analytics Collection & Storage** — Dual-phase polling (24h basic + 72h deep), schema-validated persistence ✓
-- [ ] **Phase 8: Brain Evolution Loop** — Evolve agent brain learning weights from real performance data to close the content strategy feedback loop
-- [ ] **Phase 9: Audio Production (Per-Scene)** — Per-scene TTS + force alignment + subtitle generation, temp asset management
-- [ ] **Phase 10: Visual Asset Pipeline (Consistent + Temp)** — Consistent/temp split, stock API sourcing, character SVGs, global + channel library
-- [ ] **Phase 11: Scene Assembly & Final Render** — Script splitting → per-scene two-pass render → assembly with subtitles + transitions → multi-format output → temp cleanup
+- [x] **Phase 8: Brain Evolution Loop** — Evolve agent brain learning weights from real performance data to close the content strategy feedback loop ✓
+- [x] **Phase 9: Audio Production (Per-Scene)** — Per-scene TTS → per-scene force alignment (Groq API / faster-whisper) → per-scene subtitle generation → script files rewritten inline with timestamps ✓
+- [ ] **Phase 10: Visual Asset Pipeline** — Stock API sourcing (Pexels/Pixabay/Freesound), character SVGs, global + per-channel consistent asset library, SQLite-backed asset cache with TTL eviction
+- [ ] **Phase 11: Scene Assembly & Final Render** — Per-scene two-pass render (HyperFrames → FFmpeg) → assembly with subtitles + crossfade transitions → multi-format output (16:9 / 9:16 / 1:1) → temp cleanup
 - [ ] **Phase 12: Agent Documentation** — Write AGENTS.md workflow directives and process-specific markdown files for agentic automation
 
 ---
@@ -173,43 +173,53 @@ Plans:
    2. Brain weight updater transforms learning weights by calculating performance ratios from analytics (ICP relevance, timeliness, etc.)
    3. Updated brain weights are integrated into the scoring engine so future topic scores reflect learned performance patterns
    4. Weight updates only trigger after minimum 3 videos per content pillar to prevent overfitting to noise
-**Plans**: 2+ plans
+**Plans**: 2 plans
+**Completed**: 2026-07-14 — 2 plans, 4/4 ANALYTICS requirements
 
 Plans:
-- [ ] 08-01-PLAN.md — Brain updater & scheduler: update_weights, update_hook_preferences, update_performance_patterns, update_brain, run_scheduled_collection (ANALYTICS-03, 04, 07)
+- [x] 08-01-PLAN.md — Brain updater & scheduler: update_weights, update_hook_preferences, update_performance_patterns, update_brain, run_scheduled_collection (ANALYTICS-03, 04, 07)
 - [x] 08-02-PLAN.md — Scoring engine integration: channel-aware brain loading, scoring with updated weights (ANALYTICS-05)
 
 ### Phase 9: Audio Production (Per-Scene)
-**Goal**: Script converted to per-scene TTS audio with word-level force alignment and per-scene subtitle generation, following the scene-by-scene production workflow.
+**Goal**: Script converted to per-scene TTS audio with word-level force alignment and per-scene subtitle generation. Scene script files are rewritten inline with timestamps so the ``_script.txt`` is the single canonical timestamp artifact — no separate ``_alignment.json`` needed.
 **Depends on**: Phase 1 (scene-level checkpoints for audio artifacts)
 **Requirements**: PROD-AUDIO-01, PROD-AUDIO-02, PROD-AUDIO-03, PROD-AUDIO-04, PROD-AUDIO-05, PROD-AUDIO-06
 **Parallelizable with**: Phase 10 (Visual Asset Pipeline) — no data dependency between audio and visual
 **Success Criteria** (what must be TRUE):
    1. Production pipeline splits script into numbered scenes; each scene gets its own `scene_XX_script.txt`
-   2. Per-scene TTS generation: each `scene_XX_script.txt` → `scene_XX_audio.wav` via multi-provider fallback chain
-   3. Per-scene force alignment: each `scene_XX_audio.wav` → word-level timestamps via `faster-whisper` with VAD pre-segmentation
-   4. Per-scene subtitle files generated from aligned transcript (SRT/VTT format) — burned into the video at render time via HyperFrames, not uploaded to YouTube as separate tracks
-   5. Generated audio marked as temp asset — stored in `channels/{Name}/active_production/`, cleaned up after final video published
-   6. `faster-whisper` version pinned; alignment accuracy validated against test corpus; ≥90% word accuracy
-**Plans**: TBD
+   2. Per-scene TTS generation: each `scene_XX_script.txt` → `scene_XX_audio.wav` via multi-provider fallback chain (`custom → gemini → google_cloud → edge`)
+   3. Per-scene force alignment: each `scene_XX_audio.wav` → word-level timestamps via Groq Whisper API (primary) or local `faster-whisper` (fallback)
+   4. After alignment, `scene_XX_script.txt` is rewritten with inline `word[START-END]` annotations — the script file becomes the single canonical timestamp source
+   5. Per-scene subtitle files generated from aligned transcript (SRT/VTT format) — burned into the video at render time via HyperFrames
+   6. Generated audio marked as temp asset — stored in `channels/{Name}/active_production/`, cleaned up after final video published
+   7. Custom TTS CLI (`agent_core/audio/tts/generate.py`) adapted as primary provider via subprocess shell-out; ``TTS_PROXY_URL`` / ``TTS_API_KEY`` env vars override
+   8. `faster-whisper` version pinned; alignment accuracy validated against test corpus; ≥90% word accuracy
+**Plans**: 3 plans
+**Completed**: 2026-07-14 — 3 plans, 6/6 PROD-AUDIO requirements
 
-### Phase 10: Visual Asset Pipeline (Consistent + Temp Separation)
-**Goal**: Assets organized into consistent (reusable) and temp (per-video) stores, with stock API sourcing, character SVG model support, global + per-channel library.
-**Depends on**: Phase 1 (scene-level checkpoints for asset artifacts between pipeline stages)
+Plans:
+- [x] 09-01-PLAN.md — TTS provider abstraction (Gemini → Google Cloud → Edge fallback) + script splitter + package scaffolding
+- [x] 09-02-PLAN.md — Force alignment (Groq API + faster-whisper fallback) + SRT/VTT subtitle generation
+- [x] 09-03-PLAN.md — Pipeline orchestrator + temp asset lifecycle + inline timestamp annotation + full test suite (439 tests, 0 failures)
+
+### Phase 10: Visual Asset Pipeline
+**Goal**: Stock API sourcing (Pexels/Pixabay/Freesound), character SVGs, global + per-channel consistent asset library, SQLite-backed asset cache with TTL eviction.
+**Depends on**: Phase 1 (scene-level checkpoints for asset artifacts)
 **Requirements**: PROD-VISUAL-01, PROD-VISUAL-02, PROD-VISUAL-03, PROD-VISUAL-04, PROD-VISUAL-05, PROD-VISUAL-06, PROD-VISUAL-07, PROD-VISUAL-08, PROD-VISUAL-09
-**Parallelizable with**: Phase 9 (Audio Production) — no data dependency between visual and audio
+**Parallelizable with**: Phase 9 (Audio Production) — no data dependency
 **Success Criteria** (what must be TRUE):
-   1. Asset storage split into two tiers:
-      - **Consistent assets** at `assets/consistent/` — reusable images, GIFs, common SFX, character SVGs (survive across videos)
-      - **Temp assets** at `channels/{Name}/active_production/` — per-video generated assets (cleaned after publish)
-   2. Global consistent asset library at `assets/consistent/global/` with channel overrides at `channels/{Name}/assets/`
-   3. Character SVG models stored as first-class consistent assets — loaded, cached, and referenced across scenes and channels via `assets/consistent/global/characters/`
-   4. Pexels API returns relevant B-roll footage and images to consistent store; Pixabay as fallback
-   5. Freesound API returns relevant SFX to consistent store with content-based search
-   6. Asset cache is SQLite-backed with TTL-based eviction for consistent and stock assets
-   7. All stock API rate limits and quotas respected; clear error messages with retry hints
-   8. Unused commented-out dependencies removed or moved to optional extras
-**Plans**: TBD
+    1. Asset storage split into consistent (`assets/consistent/global/` + `channels/{Name}/assets/`) and temp (`channels/{Name}/active_production/`)
+    2. Character SVG models as first-class consistent assets
+    3. Pexels API → B-roll/images; Pixabay fallback; Freesound API → SFX
+    4. SQLite-backed asset cache with TTL eviction
+    5. All stock API rate limits and quotas respected
+**Plans**: 4 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — Foundation: Base ABC, Storage, Cache, Search (Wave 1)
+- [x] 10-02-PLAN.md — Characters: CharacterResolver with variant lookup (Wave 2)
+- [ ] 10-03-PLAN.md — Providers: Pexels, Pixabay, Freesound + fallback chain (Wave 2)
+- [ ] 10-04-PLAN.md — Module exports + dependency cleanup (Wave 3)
 
 ### Phase 11: Scene Assembly & Final Render
 **Goal**: Script split into scenes → each scene rendered individually via two-pass hybrid (Puppeteer → FFmpeg) → all scene clips assembled with subtitles and transitions → final multi-format output.
@@ -250,10 +260,10 @@ Phase 1 (Foundation & Pipeline)
   ├── Phase 5 (Channel Onboarding & Branding) ←─ prerequisite for publishing
   ├── Phase 6 (YouTube Publishing) ←─ needs branded channel
   │     └── Phase 7 (Analytics Collection)
-  │           └── Phase 8 (Brain Evolution Loop)
-  ├── Phase 9 (Audio Production) ──┐
-  ├── Phase 10 (Visual Pipeline) ──┤
-  │               ┌─────────────────┘
+  │           └── Phase 8 (Brain Evolution Loop) ✓
+  ├── Phase 9 (Audio Production) ✓ ──┐
+  ├── Phase 10 (Visual Pipeline) ────┤
+  │               ┌───────────────────┘
   │               ▼
   ├── Phase 11 (Scene Assembly & Render) ←─ Phase 9 + Phase 10 outputs
   │
@@ -266,16 +276,16 @@ Phase 1 (Foundation & Pipeline)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Pipeline Infrastructure | 0/– | Not started | - |
-| 2. Security Hardening & Packaging | 0/– | Not started | - |
+| 1. Foundation & Pipeline Infrastructure | 0/– | Complete ✓ | 2026-07-12 |
+| 2. Security Hardening & Packaging | 3/3 | Complete ✓ | 2026-07-12 |
 | 3. Test Framework & Core Unit Tests | 6/6 | Complete ✓ | 2026-07-12 |
 | 4. CI Pipeline & Extended Tests | 4/4 | Complete ✓ | 2026-07-13 |
-| 5. Channel Onboarding & Branding | 0/3 | Planning | - |
-| 6. YouTube Publishing | 0/– | Not started | - |
-| 7. Analytics Collection & Storage | 0/– | Not started | - |
-| 8. Brain Evolution Loop | 1 plan created | Planning | - |
-| 9. Audio Production (Per-Scene) | 0/– | Not started | - |
-| 10. Visual Asset Pipeline (Consistent+Temp) | 0/– | Not started | - |
+| 5. Channel Onboarding & Branding | 3/3 | Complete ✓ | 2026-07-13 |
+| 6. YouTube Publishing | 3/3 | Complete ✓ | 2026-07-13 |
+| 7. Analytics Collection & Storage | 2/2 | Complete ✓ | 2026-07-13 |
+| 8. Brain Evolution Loop | 2/2 | Complete ✓ | 2026-07-14 |
+| 9. Audio Production (Per-Scene) | 3/3 | Complete ✓ | 2026-07-14 |
+| 10. Visual Asset Pipeline | 0/4 | Not started | - |
 | 11. Scene Assembly & Final Render | 0/– | Not started | - |
 | 12. Agent Documentation | 0/– | Not started | - |
 
@@ -283,22 +293,22 @@ Phase 1 (Foundation & Pipeline)
 
 ## Requirement Coverage
 
-| Category | Total | Phase | Mapped |
-|----------|-------|-------|--------|
-| PIPE (Pipeline Infrastructure) | 7 | Phase 1 | 7/7 ✓ |
-| SEC (Security & Packaging) | 8 | Phase 2 | 8/8 ✓ |
-| TEST (Test Infrastructure) | 10 | Phases 3-4 | 10/10 ✓ |
-| CHANNEL (Channel Onboarding & Branding) | 7 | Phase 5 | 7/7 ✓ |
-| PUBLISH (YouTube Publishing) | 13 | Phase 6 | 13/13 ✓ |
-| ANALYTICS (Analytics & Brain) | 7 | Phases 7-8 | 7/7 ✓ |
-| PROD-AUDIO (Audio Production) | 6 | Phase 9 | 6/6 ✓ |
-| PROD-VISUAL (Visual Assets) | 9 | Phase 10 | 9/9 ✓ |
-| PROD-RENDER (Scene Assembly & Render) | 7 | Phase 11 | 7/7 ✓ |
-| DOC (Agent Documentation) | 2 | Phase 12 | 2/2 ✓ |
-| **Total** | **76** | **12 phases** | **76/76 ✓** |
+| Category | Total | Phase | Mapped | Status |
+|----------|-------|-------|--------|--------|
+| PIPE (Pipeline Infrastructure) | 7 | Phase 1 | 7/7 ✓ | Complete |
+| SEC (Security & Packaging) | 8 | Phase 2 | 8/8 ✓ | Complete |
+| TEST (Test Infrastructure) | 10 | Phases 3-4 | 10/10 ✓ | Complete |
+| CHANNEL (Channel Onboarding & Branding) | 7 | Phase 5 | 7/7 ✓ | Complete |
+| PUBLISH (YouTube Publishing) | 13 | Phase 6 | 13/13 ✓ | Complete |
+| ANALYTICS (Analytics & Brain) | 7 | Phases 7-8 | 7/7 ✓ | Complete |
+| PROD-AUDIO (Audio Production) | 6 | Phase 9 | 6/6 ✓ | Complete |
+| PROD-VISUAL (Visual Assets) | 9 | Phase 10 | 9/9 ✓ | Pending |
+| PROD-RENDER (Scene Assembly & Render) | 7 | Phase 11 | 7/7 ✓ | Pending |
+| DOC (Agent Documentation) | 2 | Phase 12 | 2/2 ✓ | Pending |
+| **Total** | **76** | **12 phases** | **76/76 ✓** | **9/12 complete** |
 
 ---
 
 *Created: 2026-07-10*
 *Granularity: fine*
-*Revised: 2026-07-10 — added Phase 5 (Channel Onboarding), expanded Phase 6 (Publishing with playlist/chapters/pin/post-hoc), renumbered 6-11→7-12, 76 total requirements*
+*Revised: 2026-07-14 — Phases 8–9 complete; production/ cleaned up; Phase 9 flow updated: aligner rewrites _script.txt inline with timestamps, remove _alignment.json; custom TTS moved to agent_core/audio/tts/generate.py*
