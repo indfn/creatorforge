@@ -2,6 +2,7 @@
 
 import pytest
 from agent_core.recon.skeleton_ripper.cleaning import clean_transcript, is_valid_transcript
+from agent_core.recon.skeleton_ripper.cache import MIN_TRANSCRIPT_WORDS
 
 
 class TestCleanTranscript:
@@ -9,7 +10,7 @@ class TestCleanTranscript:
         result = clean_transcript("[Music] hello world [Applause]", "youtube_caption")
         assert result == "hello world"
 
-    def test_youtube_caption_strips_webvtt_header(self):
+    def test_youtube_caption_strips_webvtt_header_and_cue_numbers(self):
         raw = "WEBVTT\n\n1\n00:00:01.000 --> 00:00:04.000\nHello world\n"
         result = clean_transcript(raw, "youtube_caption")
         assert result == "Hello world"
@@ -18,9 +19,9 @@ class TestCleanTranscript:
         result = clean_transcript("the the quick brown fox", "youtube_caption")
         assert result == "the quick brown fox"
 
-    def test_whisper_normalizes_multi_space(self):
-        result = clean_transcript("hello   world", "whisper")
-        assert result == "hello world"
+    def test_whisper_normalizes_multi_space_and_preserves_text(self):
+        result = clean_transcript("hello   world.", "whisper")
+        assert result == "hello world."
 
     def test_whisper_removes_incomplete_trailing_sentence(self):
         result = clean_transcript("Hello world. This is incomplete", "whisper")
@@ -39,25 +40,33 @@ class TestCleanTranscript:
         assert result == ""
 
     def test_zero_width_chars_stripped(self):
-        result = clean_transcript("hello\u200bworld", "whisper")
-        assert result == "hello world"
+        result = clean_transcript("hello\u200bworld.", "whisper")
+        assert result == "helloworld."
+
+    def test_zero_width_chars_between_words_preserved(self):
+        result = clean_transcript("hello\u200b world.", "whisper")
+        assert result == "hello world."
 
 
 class TestIsValidTranscript:
     def test_empty_string_returns_false(self):
         assert is_valid_transcript("") is False
 
-    def test_valid_short_string_returns_true(self):
-        assert is_valid_transcript("hello world") is True
+    def test_min_words_threshold_default(self):
+        """MIN_TRANSCRIPT_WORDS is 10, so 'hello world' (2 words) fails."""
+        assert is_valid_transcript("hello world") is False
 
-    def test_min_words_threshold(self):
+    def test_min_words_threshold_above(self):
         assert is_valid_transcript("a b c", min_words=5) is False
 
+    def test_min_words_threshold_below_passes(self):
+        assert is_valid_transcript("hello world", min_words=2) is True
+
     def test_min_word_length_passes(self):
-        assert is_valid_transcript("hello world", min_word_length=3) is True
+        assert is_valid_transcript("hello world", min_words=2, min_word_length=3) is True
 
     def test_min_word_length_fails(self):
-        assert is_valid_transcript("a b c", min_word_length=2) is False
+        assert is_valid_transcript("a b c", min_words=2, min_word_length=2) is False
 
     def test_default_min_words_still_works(self):
         assert is_valid_transcript("short") is False  # 1 word < 10

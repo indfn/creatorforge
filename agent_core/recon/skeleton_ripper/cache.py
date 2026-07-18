@@ -6,11 +6,11 @@ Ported from ReelRecon — cache dir adjusted to data/recon/cache/.
 import os
 from pathlib import Path
 from typing import Optional
-from recon.utils.logger import get_logger
+from agent_core.recon.utils.logger import get_logger
 
 logger = get_logger()
 
-CACHE_DIR = Path(__file__).parent.parent.parent / "data" / "recon" / "cache"
+CACHE_DIR = Path(__file__).parent.parent.parent.parent / "data" / "recon" / "cache"
 
 MIN_TRANSCRIPT_WORDS = 10
 MIN_VALID_RATIO = 0.6
@@ -84,11 +84,21 @@ class TranscriptCache:
         }
 
 
-def is_valid_transcript(transcript: str) -> bool:
+def is_valid_transcript(
+    transcript: str,
+    min_words: int = MIN_TRANSCRIPT_WORDS,
+    min_word_length: int = 1,
+) -> bool:
     if not transcript or not transcript.strip():
         return False
-    word_count = len(transcript.split())
-    return word_count >= MIN_TRANSCRIPT_WORDS
+    words = transcript.split()
+    word_count = len(words)
+    if word_count < min_words:
+        return False
+    if min_word_length > 1:
+        if any(len(w) < min_word_length for w in words):
+            return False
+    return True
 
 
 def check_transcript_validity(transcripts: list[dict]) -> tuple[int, int, bool]:
