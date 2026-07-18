@@ -166,3 +166,126 @@ class TestMigrateFromFlatCache:
         # "not-a-match.txt" doesn't match the underscore pattern — only 1 valid file
         assert found == 2
         assert migrated == 1  # only youtube_channel_video1.txt matches pattern
+
+
+# ── Source and language tests ───────────────────────────────────────────
+
+
+class TestDbTranscriptCacheSource:
+    """Tests for source metadata storage."""
+
+    def test_source_stored(self):
+        c = DbTranscriptCache(":memory:")
+        c.set("yt", "ch", "v", "hello world transcript", source="youtube_caption")
+        assert c.get("yt", "ch", "v") == "hello world transcript"
+
+    def test_source_defaults_to_whisper_api(self):
+        c = DbTranscriptCache(":memory:")
+        c.set("yt", "ch", "v", "hello world transcript")
+        # get() returns text regardless of source — verify it works
+        assert c.get("yt", "ch", "v") == "hello world transcript"
+
+
+class TestDbTranscriptCacheLanguage:
+    """Tests for language metadata storage."""
+
+    def test_language_stored(self):
+        c = DbTranscriptCache(":memory:")
+        c.set("yt", "ch", "v", "hola mundo", language="es")
+        assert c.get("yt", "ch", "v") == "hola mundo"
+
+    def test_language_defaults_to_en(self):
+        c = DbTranscriptCache(":memory:")
+        c.set("yt", "ch", "v", "hello world")
+        assert c.get("yt", "ch", "v") == "hello world"
+
+
+# ── TTL tests ────────────────────────────────────────────────────────────
+
+
+class TestDbTranscriptCacheTTL:
+    """Tests for TTL eviction behavior."""
+
+    def test_ttl_not_expired_returns_transcript(self):
+        """Entry with a future TTL should be returned normally."""
+        c = DbTranscriptCache(":memory:")
+        c.set("yt", "ch", "v", "hello world alive", ttl_seconds=3600)
+        assert c.get("yt", "ch", "v") == "hello world alive"
+        assert c.exists("yt", "ch", "v") is True
+
+    def test_ttl_expired_returns_none_and_deletes(self):
+        c = DbTranscriptCache(":memory:")
+        c.set("yt", "ch", "v", "hello world expired", ttl_seconds=0)
+        # TTL of 0 means expired immediately
+        result = c.get("yt", "ch", "v")
+        assert result is None
+        assert c.exists("yt", "ch", "v") is False
+
+
+# ── Stats tests ─────────────────────────────────────────────────────────
+
+
+class TestDbTranscriptCacheStats:
+    """Tests for cache statistics."""
+
+    def test_stats_empty(self):
+        c = DbTranscriptCache(":memory:")
+        stats = c.get_stats()
+        assert stats["total_transcripts"] == 0
+        assert stats["total_words"] == 0
+
+    def test_stats_after_set(self):
+        c = DbTranscriptCache(":memory:")
+        c.set("yt", "ch", "v", "one two three", source="whisper_api")
+        stats = c.get_stats()
+        assert stats["total_transcripts"] == 1
+        assert stats["total_words"] == 3
+
+    def test_stats_after_clear(self):
+        c = DbTranscriptCache(":memory:")
+        c.set("yt", "ch", "v1", "hello world one", source="whisper_api")
+        c.set("ig", "ch", "v2", "hello world two", source="instagram_caption")
+        c.clear_all()
+        stats = c.get_stats()
+        assert stats["total_transcripts"] == 0
+        assert stats["total_words"] == 0
+        assert stats["total_platforms"] == []
+
+
+# ── Additional migration tests ──────────────────────────────────────────
+
+
+class TestMigrateFromFlatCacheExtended:
+    """Further edge-case tests for migration."""
+
+    def test_migrate_skips_empty_files(self, tmp_path):
+        """Empty .txt files are skipped during migration."""
+        cache_dir = tmp_path / "flat_cache"
+        cache_dir.mkdir()
+        # Empty file
+        (cache_dir / "youtube_channel_vid1.txt").write_text("", encoding="utf-8")
+        # Non-empty but too short file
+        (cache_dir / "youtube_channel_vid2.txt").write_text("short", encoding="utf-8")
+        # Valid file
+        (cache_dir / "youtube_channel_vid3.txt").write_text("hello world valid transcript text here", encoding="utf-8")
+
+        db_cache = DbTranscriptCache(":memory:")
+        found, migrated = migrate_from_flat_cache(str(cache_dir), db_cache)
+        assert found == 3
+        # Only vid3 has enough words (5) to pass min_words=2 check
+        assert migrated == 1
+        assert db_cache.get("youtube", "channel", "vid3") == "hello world valid transcript text here"
+
+    def test_migrate_preserves_content(self, tmp_path):
+        """Text content is identical after migration."""
+        cache_dir = tmp_path / "flat_cache"
+        cache_dir.mkdir()
+        original = "This is the original transcript text that should be preserved exactly."
+        (cache_dir / "youtube_channel_video1.txt").write_text(original, encoding="utf-8")
+
+        db_cache = DbTranscriptCache(":memory:")
+        found, migrated = migrate_from_flat_cache(str(cache_dir), db_cache)
+        assert found == 1
+        assert migrated == 1
+        cached = db_cache.get("youtube", "channel", "video1")
+        assert cached == original

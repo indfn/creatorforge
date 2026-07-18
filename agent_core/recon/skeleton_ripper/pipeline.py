@@ -20,7 +20,6 @@ from .extractor import BatchedExtractor
 from .aggregator import SkeletonAggregator, AggregatedData
 from .synthesizer import PatternSynthesizer, SynthesisResult, generate_report
 from agent_core.recon.utils.logger import get_logger
-from agent_core.recon.cache.db_cache import DbTranscriptCache, migrate_from_flat_cache
 from agent_core.recon.skeleton_ripper.cleaning import clean_transcript
 from agent_core.recon.scraper.youtube import get_video_captions
 from agent_core.recon.scraper.youtube import download_video as _yt_download_video
@@ -118,6 +117,8 @@ class SkeletonRipperPipeline:
         self.base_dir = Path(base_dir)
         self.output_dir = RECON_DATA_DIR / 'reports'
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        # Lazy import to avoid circular dependency (db_cache ↔ skeleton_ripper.cache)
+        from agent_core.recon.cache.db_cache import DbTranscriptCache  # noqa: PLC0415
         self.cache = DbTranscriptCache()
         self._migrate_if_empty()
         logger.info("PIPELINE", f"SkeletonRipperPipeline initialized")
@@ -128,6 +129,7 @@ class SkeletonRipperPipeline:
             stats = self.cache.get_stats()
             if stats.get('total_transcripts', 0) == 0:
                 from .cache import CACHE_DIR
+                from agent_core.recon.cache.db_cache import migrate_from_flat_cache  # noqa: PLC0415
                 migrated, total = migrate_from_flat_cache(str(CACHE_DIR), self.cache)
                 if migrated > 0:
                     logger.info("PIPELINE", f"Migrated {migrated}/{total} flat cache entries to SQLite")
