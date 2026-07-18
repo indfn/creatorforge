@@ -21,7 +21,7 @@ data/angles/
 
 # Recon runtime data (legacy — moved to agent_core/recon/)
 agent_core/recon/data/
-agent_core/recon/cache/
+agent_core/recon/cache/*.txt
 agent_core/recon/*.db
 
 # Logs
@@ -45,8 +45,6 @@ channels/*/brain.json
 channels/*/data/
 channels/*/active_production/assets/
 channels/*/active_production/render/
-channels/*/active_production/scenes/*
-!channels/*/active_production/scenes/.gitkeep
 channels/*/active_production/active_script.json
 channels/*/active_production/aligned_transcript.json
 .channel-active
@@ -63,7 +61,7 @@ production/RenderEngine/render/
 # Personal reports and scraped video data
 *-report.md
 ∕tmp∕*/
-# .planning/ — planning docs tracked in version control
+.planning/
 
 # SQLite databases
 *.db

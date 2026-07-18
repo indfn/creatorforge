@@ -1,9 +1,15 @@
 """
 Transcript caching for Content Skeleton Ripper.
 Ported from ReelRecon — cache dir adjusted to data/recon/cache/.
+
+.. deprecated::
+    Use ``agent_core.recon.cache.db_cache.DbTranscriptCache`` instead.
+    The flat-file TranscriptCache is kept for backward compatibility but
+    will be removed in a future phase.
 """
 
 import os
+import warnings
 from pathlib import Path
 from typing import Optional
 from agent_core.recon.utils.logger import get_logger
@@ -18,6 +24,11 @@ MIN_VALID_RATIO = 0.6
 
 class TranscriptCache:
     def __init__(self, base_dir: Optional[str] = None):
+        warnings.warn(
+            "TranscriptCache (flat-file) is deprecated. Use DbTranscriptCache from "
+            "agent_core.recon.cache.db_cache instead.",
+            DeprecationWarning, stacklevel=2,
+        )
         if base_dir is None:
             self.cache_dir = CACHE_DIR
         else:

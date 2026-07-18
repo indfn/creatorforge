@@ -159,10 +159,10 @@ class TestMigrateFromFlatCache:
         cache_dir = tmp_path / "flat_cache"
         cache_dir.mkdir()
         (cache_dir / "youtube_channel_video1.txt").write_text("valid transcript text here yes", encoding="utf-8")
-        (cache_dir / "not_a_match.txt").write_text("another valid transcript entry here", encoding="utf-8")
+        (cache_dir / "not-a-match.txt").write_text("another valid transcript entry here", encoding="utf-8")
 
         db_cache = DbTranscriptCache(":memory:")
         found, migrated = migrate_from_flat_cache(str(cache_dir), db_cache)
-        # "not_a_match.txt" has only 3 underscore-separated parts — video_id would be empty
+        # "not-a-match.txt" doesn't match the underscore pattern — only 1 valid file
         assert found == 2
-        assert migrated == 1  # only the valid one with all 3 parts
+        assert migrated == 1  # only youtube_channel_video1.txt matches pattern
