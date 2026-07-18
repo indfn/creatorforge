@@ -583,7 +583,7 @@ class TestLoadConfig:
         assert cfg.llm_model == "gpt-4o-mini"
         assert cfg.transcribe_base_url == "https://api.openai.com/v1"
         assert cfg.transcribe_model == "whisper-1"
-        assert cfg.transcribe_provider == "openai"
+        assert cfg.transcribe_provider == "groq"
         assert cfg.whisper_model == "small.en"
 
     def test_llm_api_key_fallback_to_openai(self, monkeypatch, tmp_path):
@@ -674,3 +674,108 @@ class TestGetFilteredCompetitors:
         monkeypatch.setattr(config, "BRAIN_FILE", tmp_path / "nonexistent.json")
         assert config.get_ig_competitors() == []
         assert config.get_yt_competitors() == []
+
+
+# ─────────────────────────────────────────────────────────────────────
+# ReconConfig dataclass default values
+# ─────────────────────────────────────────────────────────────────────
+
+
+class TestReconConfigDefaults:
+    """ReconConfig dataclass default field values (direct instantiation)."""
+
+    def test_transcribe_provider_defaults_to_groq(self):
+        cfg = config.ReconConfig(competitors=[])
+        assert cfg.transcribe_provider == "groq"
+
+    def test_transcribe_base_url_defaults_to_groq(self):
+        cfg = config.ReconConfig(competitors=[])
+        assert cfg.transcribe_base_url == "https://api.groq.com/openai/v1"
+
+    def test_transcribe_model_defaults_to_whisper_large_v3_turbo(self):
+        cfg = config.ReconConfig(competitors=[])
+        assert cfg.transcribe_model == "whisper-large-v3-turbo"
+
+    def test_target_language_defaults_to_en(self):
+        cfg = config.ReconConfig(competitors=[])
+        assert cfg.target_language == "en"
+
+
+# ─────────────────────────────────────────────────────────────────────
+# GROQ_API_KEY → transcribe_api_key mapping
+# ─────────────────────────────────────────────────────────────────────
+
+
+class TestGroqApiKeyMapping:
+    """Environment variable GROQ_API_KEY maps to transcribe_api_key."""
+
+    def _setup_all(self, monkeypatch, tmp_path):
+        """Set up all config paths to temp dirs with basic encryption."""
+        test_key = Fernet.generate_key().decode("utf-8")
+        monkeypatch.setenv("CREDENTIALS_ENCRYPTION_KEY", test_key)
+        monkeypatch.setattr(config, "CREDENTIALS_KEY_DIR", tmp_path)
+        monkeypatch.setattr(config, "CREDENTIALS_KEY_FILE", tmp_path / "credentials.key")
+        monkeypatch.setattr(config, "CREDENTIALS_FILE", tmp_path / ".credentials")
+        monkeypatch.setattr(config, "ENV_FILE", tmp_path / ".env")
+        monkeypatch.setattr(config, "BRAIN_FILE", tmp_path / "agent-brain.json")
+        monkeypatch.setattr(config, "RECON_DATA_DIR", tmp_path / "recon")
+
+    def test_groq_api_key_maps_to_transcribe_api_key(self, monkeypatch, tmp_path):
+        """GROQ_API_KEY env var maps to transcribe_api_key in load_config()."""
+        self._setup_all(monkeypatch, tmp_path)
+        monkeypatch.setenv("GROQ_API_KEY", "sk-groq-test-value")
+
+        cfg = config.load_config()
+        assert cfg.transcribe_api_key == "sk-groq-test-value"
+
+    def test_groq_api_key_fallback_to_openai(self, monkeypatch, tmp_path):
+        """GROQ_API_KEY falls back to OPENAI_API_KEY when GROQ_API_KEY not set."""
+        self._setup_all(monkeypatch, tmp_path)
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-fallback")
+
+        cfg = config.load_config()
+        assert cfg.transcribe_api_key == "sk-openai-fallback"
+
+    def test_transcribe_api_key_takes_priority_over_groq(self, monkeypatch, tmp_path):
+        """TRANSCRIBE_API_KEY takes priority over GROQ_API_KEY."""
+        self._setup_all(monkeypatch, tmp_path)
+        monkeypatch.setenv("TRANSCRIBE_API_KEY", "sk-transcribe-priority")
+        monkeypatch.setenv("GROQ_API_KEY", "sk-groq-lower")
+
+        cfg = config.load_config()
+        assert cfg.transcribe_api_key == "sk-transcribe-priority"
+
+
+# ─────────────────────────────────────────────────────────────────────
+# RECON_TARGET_LANGUAGE → target_language mapping
+# ─────────────────────────────────────────────────────────────────────
+
+
+class TestTargetLanguageConfig:
+    """RECON_TARGET_LANGUAGE env var maps to target_language config field."""
+
+    def _setup_all(self, monkeypatch, tmp_path):
+        """Set up all config paths to temp dirs with basic encryption."""
+        test_key = Fernet.generate_key().decode("utf-8")
+        monkeypatch.setenv("CREDENTIALS_ENCRYPTION_KEY", test_key)
+        monkeypatch.setattr(config, "CREDENTIALS_KEY_DIR", tmp_path)
+        monkeypatch.setattr(config, "CREDENTIALS_KEY_FILE", tmp_path / "credentials.key")
+        monkeypatch.setattr(config, "CREDENTIALS_FILE", tmp_path / ".credentials")
+        monkeypatch.setattr(config, "ENV_FILE", tmp_path / ".env")
+        monkeypatch.setattr(config, "BRAIN_FILE", tmp_path / "agent-brain.json")
+        monkeypatch.setattr(config, "RECON_DATA_DIR", tmp_path / "recon")
+
+    def test_target_language_from_env_var(self, monkeypatch, tmp_path):
+        """RECON_TARGET_LANGUAGE env var maps to target_language."""
+        self._setup_all(monkeypatch, tmp_path)
+        monkeypatch.setenv("RECON_TARGET_LANGUAGE", "fr")
+
+        cfg = config.load_config()
+        assert cfg.target_language == "fr"
+
+    def test_target_language_default(self, monkeypatch, tmp_path):
+        """When RECON_TARGET_LANGUAGE is not set, target_language defaults to 'en'."""
+        self._setup_all(monkeypatch, tmp_path)
+
+        cfg = config.load_config()
+        assert cfg.target_language == "en"
