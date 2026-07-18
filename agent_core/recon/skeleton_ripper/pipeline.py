@@ -21,7 +21,6 @@ from .aggregator import SkeletonAggregator, AggregatedData
 from .synthesizer import PatternSynthesizer, SynthesisResult, generate_report
 from agent_core.recon.utils.logger import get_logger
 from agent_core.recon.skeleton_ripper.cleaning import clean_transcript
-from agent_core.recon.scraper.youtube import get_video_captions
 from agent_core.recon.scraper.youtube import download_video as _yt_download_video
 
 # Import recon scrapers (replaces ReelRecon's cookie-based scraper)
@@ -309,6 +308,9 @@ class SkeletonRipperPipeline:
         except OSError:
             pass
 
+        # Clean Whisper transcript before returning
+        if transcript_text:
+            transcript_text = clean_transcript(transcript_text, source="whisper")
         return transcript_text
 
     # ── Per-platform processing ──────────────────────────────────
@@ -316,7 +318,7 @@ class SkeletonRipperPipeline:
     def _process_youtube(self, config: JobConfig, progress: JobProgress,
                           on_progress: Optional[Callable]) -> list[dict]:
         """Process YouTube competitors — caption-first, then download+transcribe fallback."""
-        from agent_core.recon.scraper.youtube import get_channel_videos
+        from agent_core.recon.scraper.youtube import get_channel_videos, get_video_captions
         transcripts = []
 
         for idx, username in enumerate(config.usernames):
@@ -448,9 +450,11 @@ class SkeletonRipperPipeline:
 
                 # 2. Caption-as-transcript (D-05, D-06)
                 caption = reel.get('caption', '')
+                if caption:
+                    caption = clean_transcript(caption, source="instagram_caption")
                 if caption and is_valid_transcript(caption, min_words=10):
                     self.cache.set(platform, username, video_id, caption,
-                                   source='instagram_caption', language=config.target_language or 'en')
+                                   source='instagram_caption')  # language unknown for IG captions
                     entry = self._make_transcript_entry(reel, caption, source='instagram_caption')
                     transcripts.append(entry)
                     valid_count += 1
