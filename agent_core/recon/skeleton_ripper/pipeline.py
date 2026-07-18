@@ -14,27 +14,31 @@ from dataclasses import dataclass, field, asdict
 from typing import Optional, Callable
 from enum import Enum
 
-from .cache import TranscriptCache, is_valid_transcript
+from .cache import is_valid_transcript
 from .llm_client import LLMClient
 from .extractor import BatchedExtractor
 from .aggregator import SkeletonAggregator, AggregatedData
 from .synthesizer import PatternSynthesizer, SynthesisResult, generate_report
-from recon.utils.logger import get_logger
+from agent_core.recon.utils.logger import get_logger
+from agent_core.recon.cache.db_cache import DbTranscriptCache, migrate_from_flat_cache
+from agent_core.recon.skeleton_ripper.cleaning import clean_transcript
+from agent_core.recon.scraper.youtube import get_video_captions
+from agent_core.recon.scraper.youtube import download_video as _yt_download_video
 
 # Import recon scrapers (replaces ReelRecon's cookie-based scraper)
-from recon.scraper.instagram import InstaClient
-from recon.scraper.downloader import (
+from agent_core.recon.scraper.instagram import InstaClient
+from agent_core.recon.scraper.downloader import (
     transcribe_video,
     transcribe_video_local,
     load_whisper_model,
     download_direct,
     WHISPER_AVAILABLE,
 )
-from recon.config import load_config
+from agent_core.recon.config import load_config
 
 logger = get_logger()
 
-RECON_DATA_DIR = Path(__file__).parent.parent.parent / "data" / "recon"
+RECON_DATA_DIR = Path(__file__).parent.parent.parent.parent / "data" / "recon"
 
 
 class JobStatus(Enum):
@@ -80,12 +84,13 @@ class JobConfig:
     llm_provider: str = "custom"
     llm_model: str = "gpt-4o-mini"
     min_valid_ratio: float = 0.6
-    transcribe_provider: str = "openai"
+    transcribe_provider: str = "groq"
     whisper_model: str = "small.en"
     openai_api_key: Optional[str] = None
     transcribe_api_key: Optional[str] = None
     transcribe_base_url: str = ""
-    transcribe_model: str = "whisper-1"
+    transcribe_model: str = "whisper-large-v3-turbo"
+    target_language: str = "en"
 
 
 @dataclass
@@ -113,8 +118,21 @@ class SkeletonRipperPipeline:
         self.base_dir = Path(base_dir)
         self.output_dir = RECON_DATA_DIR / 'reports'
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.cache = TranscriptCache()
+        self.cache = DbTranscriptCache()
+        self._migrate_if_empty()
         logger.info("PIPELINE", f"SkeletonRipperPipeline initialized")
+
+    def _migrate_if_empty(self):
+        """Migrate flat cache to SQLite on first use (best-effort, silent)."""
+        try:
+            stats = self.cache.get_stats()
+            if stats.get('total_transcripts', 0) == 0:
+                from .cache import CACHE_DIR
+                migrated, total = migrate_from_flat_cache(str(CACHE_DIR), self.cache)
+                if migrated > 0:
+                    logger.info("PIPELINE", f"Migrated {migrated}/{total} flat cache entries to SQLite")
+        except Exception:
+            pass  # Migration is best-effort
 
     def run(self, config: JobConfig, on_progress: Optional[Callable[[JobProgress], None]] = None) -> JobResult:
         job_id = f"sr_{uuid.uuid4().hex[:8]}"
@@ -200,165 +218,270 @@ class SkeletonRipperPipeline:
         self._notify(on_progress, progress)
         return result
 
-    def _scrape_and_transcribe(self, config: JobConfig, progress: JobProgress, on_progress: Optional[Callable]) -> list[dict]:
-        """Scrape videos and get transcripts using Instaloader for IG."""
-        transcripts = []
-        openai_key = config.openai_api_key or os.getenv('OPENAI_API_KEY') or os.getenv('LLM_API_KEY')
-        transcribe_key = config.transcribe_api_key or openai_key
-        transcribe_base_url = config.transcribe_base_url or os.getenv('TRANSCRIBE_BASE_URL', 'https://api.openai.com/v1')
-        transcribe_model = config.transcribe_model or os.getenv('TRANSCRIBE_MODEL', 'whisper-1')
+    # ── Helpers ──────────────────────────────────────────────────
 
-        # Load local Whisper if needed
-        whisper_model = None
-        if config.transcribe_provider == 'local' and WHISPER_AVAILABLE:
-            progress.message = f"Loading Whisper model ({config.whisper_model})..."
-            self._notify(on_progress, progress)
-            whisper_model = load_whisper_model(config.whisper_model)
-            if not whisper_model:
-                config.transcribe_provider = 'openai'
+    @staticmethod
+    def _make_transcript_entry(video: dict, transcript: str,
+                                from_cache: bool = False,
+                                source: str = "whisper_api") -> dict:
+        """Build a standardised transcript entry dict."""
+        return {
+            'video_id': video.get('video_id') or video.get('shortcode', ''),
+            'username': video.get('username') or video.get('channel', ''),
+            'platform': video.get('platform', 'youtube'),
+            'views': video.get('views', 0),
+            'likes': video.get('likes', 0),
+            'url': video.get('url', ''),
+            'video_url': video.get('video_url', ''),
+            'transcript': transcript,
+            'from_cache': from_cache,
+            'transcript_source': source,
+        }
 
-        # Setup InstaClient for IG competitors
-        insta_client = None
-        if config.platform == 'instagram':
-            recon_config = load_config()
-            if recon_config.ig_username and recon_config.ig_password:
-                insta_client = InstaClient()
-                if not insta_client.login(recon_config.ig_username, recon_config.ig_password):
-                    raise RuntimeError("Instagram login failed. Check IG_USERNAME/IG_PASSWORD.")
-            else:
-                raise RuntimeError("IG credentials not configured. Set IG_USERNAME and IG_PASSWORD env vars or run settings.")
-
+    def _download_and_transcribe(self, video: dict, config: JobConfig, username: str,
+                                   platform: str, progress: JobProgress,
+                                   on_progress: Optional[Callable],
+                                   insta_client=None) -> Optional[str]:
+        """Download a single video and transcribe it. Shared by YT and IG paths."""
         temp_dir = RECON_DATA_DIR / 'temp'
         temp_dir.mkdir(parents=True, exist_ok=True)
+
+        video_id = video.get('video_id') or video.get('shortcode', '')
+        video_path = temp_dir / f"{username}_{video_id}.mp4"
+        views_display = f"{video.get('views', 0):,}"
+
+        # ── Download ──
+        progress.message = f"Downloading ({views_display} views)"
+        self._notify(on_progress, progress)
+
+        downloaded = False
+        if platform == 'youtube':
+            video_url = f"https://www.youtube.com/watch?v={video_id}"
+            downloaded = _yt_download_video(video_url, video_path, max_retries=2)
+        else:
+            video_url = video.get('video_url', '')
+            if video_url:
+                downloaded = download_direct(video_url, video_path)
+            if not downloaded and insta_client:
+                downloaded = insta_client.download_reel(video_id, video_path)
+
+        if not downloaded or not video_path.exists():
+            logger.warning("PIPELINE", f"Download failed for {platform}/{username}/{video_id}")
+            return None
+
+        progress.videos_downloaded += 1
+
+        # ── Transcribe ──
+        progress.message = f"Transcribing ({views_display} views)"
+        self._notify(on_progress, progress)
+
+        openai_key = config.openai_api_key or os.getenv('OPENAI_API_KEY') or os.getenv('LLM_API_KEY')
+        transcribe_key = config.transcribe_api_key or openai_key
+
+        transcript_text = None
+        if config.transcribe_provider == 'groq' and transcribe_key:
+            base_url = config.transcribe_base_url or os.getenv('TRANSCRIBE_BASE_URL', 'https://api.groq.com/openai/v1')
+            transcript_text = transcribe_video(
+                str(video_path),
+                api_key=transcribe_key,
+                base_url=base_url,
+                model=config.transcribe_model or 'whisper-large-v3-turbo',
+            )
+        elif config.transcribe_provider == 'openai' and openai_key:
+            base_url = config.transcribe_base_url or os.getenv('TRANSCRIBE_BASE_URL', 'https://api.openai.com/v1')
+            transcript_text = transcribe_video(
+                str(video_path),
+                api_key=transcribe_key,
+                base_url=base_url,
+                model=config.transcribe_model or 'whisper-1',
+            )
+        elif config.transcribe_provider == 'local' and WHISPER_AVAILABLE:
+            wm = load_whisper_model(config.whisper_model)
+            if wm:
+                transcript_text = transcribe_video_local(str(video_path), wm)
+
+        # Cleanup temp video file
+        try:
+            if video_path.exists():
+                video_path.unlink()
+        except OSError:
+            pass
+
+        return transcript_text
+
+    # ── Per-platform processing ──────────────────────────────────
+
+    def _process_youtube(self, config: JobConfig, progress: JobProgress,
+                          on_progress: Optional[Callable]) -> list[dict]:
+        """Process YouTube competitors — caption-first, then download+transcribe fallback."""
+        from agent_core.recon.scraper.youtube import get_channel_videos
+        transcripts = []
 
         for idx, username in enumerate(config.usernames):
             progress.current_creator = username
             progress.current_creator_index = idx + 1
             progress.current_video_index = 0
-            progress.phase = f"Processing @{username} ({idx + 1}/{len(config.usernames)})"
+            progress.phase = f"YouTube @{username} ({idx + 1}/{len(config.usernames)})"
             progress.message = "Checking cache..."
             self._notify(on_progress, progress)
 
-            # Check cache first
-            cached = self._get_cached_transcripts(config.platform, username, config.videos_per_creator)
-            if cached and len(cached) >= config.videos_per_creator:
-                progress.transcripts_from_cache += len(cached[:config.videos_per_creator])
-                transcripts.extend(cached[:config.videos_per_creator])
+            videos = get_channel_videos(username, max_videos=config.videos_per_creator * 3)
+            if not videos:
+                progress.errors.append(f"YouTube @{username}: No videos found")
                 continue
 
-            # Fetch reel metadata
-            progress.message = f"Fetching reels from @{username}..."
+            progress.videos_scraped += len(videos)
+            valid_count = 0
+
+            for video in videos:
+                if valid_count >= config.videos_per_creator:
+                    break
+
+                video_id = video.get('video_id', '')
+
+                # 1. Cache check
+                cached = self.cache.get('youtube', username, video_id)
+                if cached and is_valid_transcript(cached):
+                    entry = self._make_transcript_entry(video, cached, from_cache=True)
+                    transcripts.append(entry)
+                    valid_count += 1
+                    progress.transcripts_from_cache += 1
+                    progress.videos_transcribed += 1
+                    continue
+
+                # 2. Caption-first (primary language)
+                lang = config.target_language or 'en'
+                caption_text = get_video_captions(video_id, lang=lang)
+                if caption_text and is_valid_transcript(caption_text):
+                    self.cache.set('youtube', username, video_id, caption_text,
+                                   source='youtube_caption', language=lang)
+                    entry = self._make_transcript_entry(video, caption_text, source='youtube_caption')
+                    transcripts.append(entry)
+                    valid_count += 1
+                    progress.videos_transcribed += 1
+                    continue
+
+                # 3. Caption fallback: try English if primary != English
+                if lang != 'en':
+                    caption_text = get_video_captions(video_id, lang='en')
+                    if caption_text and is_valid_transcript(caption_text):
+                        self.cache.set('youtube', username, video_id, caption_text,
+                                       source='youtube_caption', language='en')
+                        entry = self._make_transcript_entry(video, caption_text, source='youtube_caption')
+                        transcripts.append(entry)
+                        valid_count += 1
+                        progress.videos_transcribed += 1
+                        continue
+
+                # 4. Fallback: download + transcribe
+                transcript_text = self._download_and_transcribe(
+                    video, config, username, 'youtube', progress, on_progress,
+                )
+                if transcript_text and is_valid_transcript(transcript_text):
+                    self.cache.set('youtube', username, video_id, transcript_text,
+                                   source='whisper_api')
+                    entry = self._make_transcript_entry(video, transcript_text, source='whisper_api')
+                    transcripts.append(entry)
+                    valid_count += 1
+                    progress.videos_transcribed += 1
+
+            if valid_count < config.videos_per_creator:
+                progress.errors.append(
+                    f"YouTube @{username}: Only {valid_count}/{config.videos_per_creator} valid transcripts"
+                )
+
+        return transcripts
+
+    def _process_instagram(self, config: JobConfig, progress: JobProgress,
+                            on_progress: Optional[Callable]) -> list[dict]:
+        """Process Instagram competitors — cache → caption-as-transcript → download+transcribe."""
+        transcripts = []
+
+        # Build InstaClient once
+        insta_client = None
+        recon_config = load_config()
+        if recon_config.ig_username and recon_config.ig_password:
+            insta_client = InstaClient()
+            if not insta_client.login(recon_config.ig_username, recon_config.ig_password):
+                logger.error("PIPELINE", "Instagram login failed")
+                progress.errors.append("Instagram login failed")
+                return transcripts
+        else:
+            progress.errors.append("IG credentials not configured")
+            return transcripts
+
+        for idx, username in enumerate(config.usernames):
+            progress.current_creator = username
+            progress.current_creator_index = idx + 1
+            progress.current_video_index = 0
+            progress.phase = f"Instagram @{username} ({idx + 1}/{len(config.usernames)})"
+            progress.message = "Fetching reels..."
             self._notify(on_progress, progress)
 
-            if config.platform == 'instagram' and insta_client:
-                reels = insta_client.get_competitor_reels(username, max_reels=100)
-                if not reels:
-                    progress.errors.append(f"@{username}: No reels found")
-                    continue
-                progress.videos_scraped += len(reels)
-                progress.reels_fetched = len(reels)
-            else:
-                progress.errors.append(f"@{username}: Platform {config.platform} not yet supported in pipeline")
+            reels = insta_client.get_competitor_reels(username, max_reels=100)
+            if not reels:
+                progress.errors.append(f"Instagram @{username}: No reels found")
                 continue
 
-            # Iterate through reels until we have enough valid transcripts
+            progress.videos_scraped += len(reels)
+            progress.reels_fetched = len(reels)
             valid_count = 0
+
             for reel in reels:
                 if valid_count >= config.videos_per_creator:
                     break
 
                 video_id = reel.get('shortcode', 'unknown')
-                views_display = f"{reel.get('views', 0):,}"
+                platform = 'instagram'
 
-                # Check cache
-                cached_text = self.cache.get(config.platform, username, video_id)
+                # 1. Cache check
+                cached_text = self.cache.get(platform, username, video_id)
                 if cached_text and is_valid_transcript(cached_text):
+                    entry = self._make_transcript_entry(reel, cached_text, from_cache=True)
+                    transcripts.append(entry)
                     valid_count += 1
-                    transcripts.append({
-                        'video_id': video_id, 'username': username,
-                        'platform': config.platform, 'views': reel.get('views', 0),
-                        'likes': reel.get('likes', 0), 'url': reel.get('url', ''),
-                        'video_url': reel.get('video_url', ''),
-                        'transcript': cached_text, 'from_cache': True
-                    })
                     progress.transcripts_from_cache += 1
                     progress.videos_transcribed += 1
                     continue
 
-                # Download and transcribe
-                progress.message = f"Video {valid_count + 1}/{config.videos_per_creator}: Downloading ({views_display} views)"
-                self._notify(on_progress, progress)
-
-                video_path = temp_dir / f"{username}_{video_id}.mp4"
-                video_url = reel.get('video_url', '')
-
-                downloaded = False
-                if video_url:
-                    downloaded = download_direct(video_url, video_path)
-                if not downloaded and insta_client:
-                    downloaded = insta_client.download_reel(video_id, video_path)
-
-                if not downloaded or not video_path.exists():
+                # 2. Caption-as-transcript (D-05, D-06)
+                caption = reel.get('caption', '')
+                if caption and is_valid_transcript(caption, min_words=10):
+                    self.cache.set(platform, username, video_id, caption,
+                                   source='instagram_caption', language=config.target_language or 'en')
+                    entry = self._make_transcript_entry(reel, caption, source='instagram_caption')
+                    transcripts.append(entry)
+                    valid_count += 1
+                    progress.videos_transcribed += 1
                     continue
 
-                progress.videos_downloaded += 1
-                progress.message = f"Video {valid_count + 1}/{config.videos_per_creator}: Transcribing ({views_display} views)"
-                self._notify(on_progress, progress)
-
-                # Transcribe
-                transcript_text = None
-                if config.transcribe_provider == 'openai' and openai_key:
-                    transcript_text = transcribe_video(
-                        str(video_path),
-                        api_key=transcribe_key,
-                        base_url=transcribe_base_url,
-                        model=transcribe_model,
-                    )
-                elif whisper_model:
-                    transcript_text = transcribe_video_local(str(video_path), whisper_model)
-
-                # Cleanup video
-                try:
-                    if video_path.exists():
-                        video_path.unlink()
-                except OSError:
-                    pass
-
+                # 3. Fallback: download + transcribe
+                transcript_text = self._download_and_transcribe(
+                    reel, config, username, 'instagram', progress, on_progress,
+                    insta_client=insta_client,
+                )
                 if transcript_text and is_valid_transcript(transcript_text):
-                    self.cache.set(config.platform, username, video_id, transcript_text)
-                    transcripts.append({
-                        'video_id': video_id, 'username': username,
-                        'platform': config.platform, 'views': reel.get('views', 0),
-                        'likes': reel.get('likes', 0), 'url': reel.get('url', ''),
-                        'video_url': reel.get('video_url', ''),
-                        'transcript': transcript_text, 'from_cache': False
-                    })
+                    self.cache.set(platform, username, video_id, transcript_text,
+                                   source='whisper_api')
+                    entry = self._make_transcript_entry(reel, transcript_text, source='whisper_api')
+                    transcripts.append(entry)
                     valid_count += 1
                     progress.videos_transcribed += 1
 
             if valid_count < config.videos_per_creator:
-                progress.errors.append(f"@{username}: Only {valid_count}/{config.videos_per_creator} valid transcripts")
+                progress.errors.append(
+                    f"Instagram @{username}: Only {valid_count}/{config.videos_per_creator} valid transcripts"
+                )
 
         return transcripts
 
-    def _get_cached_transcripts(self, platform: str, username: str, count: int) -> list[dict]:
-        cached = []
-        cache_pattern = f"{platform.lower()}_{username.lower()}_*.txt"
-        cache_files = list(self.cache.cache_dir.glob(cache_pattern))
-        for cache_file in cache_files[:count]:
-            try:
-                transcript_text = cache_file.read_text(encoding='utf-8')
-                if is_valid_transcript(transcript_text):
-                    parts = cache_file.stem.split('_')
-                    video_id = parts[-1] if len(parts) >= 3 else cache_file.stem
-                    cached.append({
-                        'video_id': video_id, 'username': username,
-                        'platform': platform, 'views': 0, 'likes': 0,
-                        'url': '', 'transcript': transcript_text, 'from_cache': True
-                    })
-            except Exception:
-                pass
-        return cached
+    def _scrape_and_transcribe(self, config: JobConfig, progress: JobProgress,
+                                on_progress: Optional[Callable]) -> list[dict]:
+        """Delegate scraping+transcription to per-platform methods."""
+        all_transcripts = []
+        all_transcripts.extend(self._process_youtube(config, progress, on_progress))
+        all_transcripts.extend(self._process_instagram(config, progress, on_progress))
+        return all_transcripts
 
     def _update_extraction_progress(self, progress, done, total, batch, total_batches, on_progress):
         progress.skeletons_extracted = done
@@ -415,11 +538,12 @@ class SkeletonRipperPipeline:
 def create_job_config(
     usernames: list[str], videos_per_creator: int = 3, platform: str = "instagram",
     llm_provider: str = "custom", llm_model: str = "gpt-4o-mini",
-    transcribe_provider: str = "openai", whisper_model: str = "small.en",
+    transcribe_provider: str = "groq", whisper_model: str = "small.en",
     openai_api_key: Optional[str] = None,
     transcribe_api_key: Optional[str] = None,
     transcribe_base_url: str = "",
-    transcribe_model: str = "whisper-1",
+    transcribe_model: str = "whisper-large-v3-turbo",
+    target_language: str = "en",
 ) -> JobConfig:
     return JobConfig(
         usernames=usernames, videos_per_creator=videos_per_creator,
@@ -429,17 +553,19 @@ def create_job_config(
         transcribe_api_key=transcribe_api_key,
         transcribe_base_url=transcribe_base_url,
         transcribe_model=transcribe_model,
+        target_language=target_language,
     )
 
 
 def run_skeleton_ripper(
     usernames: list[str], videos_per_creator: int = 3, platform: str = "instagram",
     llm_provider: str = "custom", llm_model: str = "gpt-4o-mini",
-    transcribe_provider: str = "openai", whisper_model: str = "small.en",
+    transcribe_provider: str = "groq", whisper_model: str = "small.en",
     openai_api_key: Optional[str] = None,
     transcribe_api_key: Optional[str] = None,
     transcribe_base_url: str = "",
-    transcribe_model: str = "whisper-1",
+    transcribe_model: str = "whisper-large-v3-turbo",
+    target_language: str = "en",
     on_progress: Optional[Callable] = None
 ) -> JobResult:
     config = create_job_config(
@@ -450,6 +576,7 @@ def run_skeleton_ripper(
         transcribe_api_key=transcribe_api_key,
         transcribe_base_url=transcribe_base_url,
         transcribe_model=transcribe_model,
+        target_language=target_language,
     )
     pipeline = SkeletonRipperPipeline()
     return pipeline.run(config, on_progress=on_progress)
