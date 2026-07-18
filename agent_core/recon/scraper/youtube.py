@@ -5,7 +5,7 @@ Fetches recent videos from YouTube channels, downloads them,
 and prepares them for transcription.
 
 Usage:
-    from recon.scraper.youtube import get_channel_videos, download_video
+    from agent_core.recon.scraper.youtube import get_channel_videos, download_video
     videos = get_channel_videos("@Chase-H-AI", max_videos=10)
 """
 
@@ -16,11 +16,12 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Callable
 
-from recon.utils.logger import get_logger
+from agent_core.recon.utils.logger import get_logger
+from agent_core.recon.skeleton_ripper.cleaning import clean_transcript
 
 logger = get_logger()
 
-DATA_DIR = Path(__file__).parent.parent.parent / "data" / "recon"
+DATA_DIR = Path(__file__).parent.parent.parent.parent / "data" / "recon"
 
 
 def get_channel_videos(
@@ -171,6 +172,85 @@ def download_video(
 
     logger.error("YOUTUBE", f"All download attempts failed for {video_url}")
     return False
+
+
+def get_video_captions(video_id: str, lang: str = "en") -> Optional[str]:
+    """
+    Extract captions from a YouTube video using yt-dlp.
+
+    Attempts to download auto-generated subtitles in the requested language,
+    parse the VTT file, and return cleaned transcript text.
+
+    Args:
+        video_id: YouTube video ID (e.g., "dQw4w9WgXcQ")
+        lang: Language code for captions (default: "en")
+
+    Returns:
+        Cleaned transcript text, or None if captions are unavailable.
+        Never raises.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "yt-dlp",
+                "--skip-download",
+                "--write-auto-subs",
+                "--sub-lang", lang,
+                "--sub-format", "vtt",
+                "--convert-subs", "vtt",
+                "--quiet",
+                "--no-warnings",
+                "--print", "filename",
+                "-o", "%(id)s.%(ext)s",
+                f"https://www.youtube.com/watch?v={video_id}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+        if result.returncode != 0 or not result.stdout.strip():
+            logger.warning("YOUTUBE",
+                           f"No captions available for {video_id} (lang={lang})",
+                           {"stderr": result.stderr[:200] if result.stderr else None})
+            return None
+
+        vtt_path_str = result.stdout.strip().split("\n")[0]
+        vtt_path = Path(vtt_path_str)
+
+        if not vtt_path.exists():
+            logger.warning("YOUTUBE", f"VTT file not found: {vtt_path}")
+            return None
+
+        raw_vtt = vtt_path.read_text(encoding="utf-8")
+        transcript = clean_transcript(raw_vtt, source="youtube_caption")
+
+        # Clean up temp .vtt file
+        try:
+            vtt_path.unlink()
+        except OSError:
+            pass
+
+        if transcript and transcript.strip():
+            logger.info("YOUTUBE",
+                        f"Extracted {len(transcript.split())} words from {video_id} captions")
+            return transcript
+
+        logger.warning("YOUTUBE",
+                       f"Captions for {video_id} produced empty transcript after cleaning")
+        return None
+
+    except FileNotFoundError:
+        logger.warning("YOUTUBE", "yt-dlp not found — install with: pip install yt-dlp")
+        return None
+    except subprocess.TimeoutExpired:
+        logger.warning("YOUTUBE",
+                       f"yt-dlp timed out fetching captions for {video_id}")
+        return None
+    except Exception as e:
+        logger.warning("YOUTUBE",
+                       f"Error fetching captions for {video_id}: {e}")
+        return None
 
 
 def save_channel_data(handle: str, videos: List[Dict]):
