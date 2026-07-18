@@ -12,6 +12,7 @@ import sqlite3
 import threading
 from pathlib import Path
 from typing import Optional, Tuple
+from datetime import datetime, timedelta, timezone
 
 from agent_core.recon.skeleton_ripper.cache import is_valid_transcript
 from agent_core.recon.utils.logger import get_logger
@@ -115,25 +116,17 @@ class DbTranscriptCache:
         Does not query the database (safe to call within a lock).
         """
         try:
-            from datetime import datetime, timezone
             now = datetime.now(timezone.utc)
             last_accessed_str = row["last_accessed_at"]
             ttl = row["ttl_seconds"]
-            # Handle both ISO format and 'YYYY-MM-DD HH:MM:SS' from SQLite
-            if isinstance(last_accessed_str, str):
-                # SQLite CURRENT_TIMESTAMP is UTC, format: '2026-07-18 12:34:56'
-                if "T" not in last_accessed_str:
-                    last_accessed_str = last_accessed_str.replace(" ", "T")
-                if "+" not in last_accessed_str and not last_accessed_str.endswith("Z"):
-                    last_accessed_str += "Z"
-                last_ts = datetime.fromisoformat(last_accessed_str)
-                if last_ts.tzinfo is None:
-                    last_ts = last_ts.replace(tzinfo=timezone.utc)
-            else:
-                # Assume it's a float timestamp
-                last_ts = datetime.fromtimestamp(float(last_accessed_str), tz=timezone.utc)
-
-            from datetime import timedelta
+            # SQLite CURRENT_TIMESTAMP always returns 'YYYY-MM-DD HH:MM:SS' format
+            if "T" not in last_accessed_str:
+                last_accessed_str = last_accessed_str.replace(" ", "T")
+            if "+" not in last_accessed_str and not last_accessed_str.endswith("Z"):
+                last_accessed_str += "Z"
+            last_ts = datetime.fromisoformat(last_accessed_str)
+            if last_ts.tzinfo is None:
+                last_ts = last_ts.replace(tzinfo=timezone.utc)
             return last_ts + timedelta(seconds=ttl) < now
         except Exception:
             return False
