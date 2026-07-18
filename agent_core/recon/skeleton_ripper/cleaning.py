@@ -21,7 +21,7 @@ ZERO_WIDTH_CHARS = re.compile(r"[\u200b\u200c\u200d\ufeff]")
 
 # ── YouTube caption / VTT artifacts ────────────────────────────────────────
 VTT_BRACKET_ARTIFACTS = re.compile(
-    r"\[(?:Music|Applause|Laughter|♪|Sound|Música|Música\s*♪|Risas|Aplausos)\]",
+    r"\[[^\]]*\]",
     re.IGNORECASE,
 )
 VTT_HEADER_LINES = re.compile(r"^(WEBVTT|Kind:|Language:)", re.MULTILINE)
@@ -117,18 +117,12 @@ def _clean_youtube_caption(raw: str) -> str:
         prev = text
         text = REPEATED_WORD.sub(r"\1", text)
 
-    # Normalize whitespace
-    text = _normalize_whitespace(text)
-
     return text
 
 
 def _clean_whisper(raw: str) -> str:
     """Clean Whisper API transcript text."""
     text = raw
-
-    # Normalize whitespace
-    text = _normalize_whitespace(text)
 
     # Strip incomplete trailing sentence
     text = _strip_incomplete_sentence(text)
