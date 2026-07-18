@@ -69,8 +69,7 @@
 
 - [x] **ANALYTICS-01**: Implement 24h-delayed analytics collection per video (YouTube Data + Analytics APIs)
 - [x] **ANALYTICS-02**: Persist analytics entries as JSONL with proper schema
-- [x] **ANALYTICS-03
-**: Implement dual-phase polling — basic public metrics at 24h, deep behavioral metrics (CTR, AVD, retention) at mandatory 72h delay (YouTube Analytics requires 48-72h to stabilize)
+- [x] **ANALYTICS-03**: Implement dual-phase on-demand collection — basic public metrics at 24h, deep behavioral metrics (CTR, AVD, retention) at mandatory 72h delay (YouTube Analytics requires 48-72h to stabilize)
 - [x] **ANALYTICS-04
 **: Implement brain weight updater: transform learning weights from performance data
 - [x] **ANALYTICS-05**: Integrate updated brain weights into scoring engine pipeline
@@ -93,10 +92,14 @@
 
 - [x] **PROD-VISUAL-02**: Implement Pixabay API as Pexels fallback for images/video
 
-- [x] **PROD-VISUAL-03**: Implement Freesound API SFX scraping with content-based search
-
+- [x] **PROD-VISUAL-03**: Implement Freesound API SFX scraping with content-based search ✓
+- [x] **PROD-VISUAL-04**: Split asset storage into consistent (reusable) vs temp (per-video) — consistent at `assets/consistent/`, temp at `channels/{Name}/active_production/` ✓
+- [x] **PROD-VISUAL-05**: Implement global consistent asset library at `assets/consistent/global/` with channel overrides at `channels/{Name}/assets/` ✓
+- [x] **PROD-VISUAL-06**: Support character SVG models as first-class consistent assets — load, cache, reference across scenes and channels ✓
+- [x] **PROD-VISUAL-07**: Build asset cache layer (SQLite-backed, TTL-based eviction) for consistent and stock assets ✓
 - [x] **PROD-VISUAL-08**: Handle rate limits and API quota for all stock providers
-- [ ] **PROD-VISUAL-09**: Remove unused commented-out dependencies for Pillow/matplotlib (or move to extras)
+- [x] **PROD-VISUAL-09
+**: Remove unused commented-out dependencies for Pillow/matplotlib (or move to extras)
 
 ### Scene Assembly & Final Render (PROD-RENDER)
 
@@ -117,6 +120,22 @@
 - [x] **PIPE-05**: Add file locking (`portalocker`) to tracker and state files
 - [x] **PIPE-06**: Cap in-memory `active_jobs` dict with LRU eviction
 - [x] **PIPE-07**: Checkpoint system supports scene-level granularity — each scene's artifacts (audio, subtitles, rendered clip) checkpoint independently for resume
+
+---
+
+### Recon Efficiency (RECON-EFF)
+
+- [ ] **RECON-EFF-01**: YouTube caption-first extraction — use `yt-dlp --skip-download --write-auto-subs --sub-lang en` to grab auto-captions before downloading audio; only download+transcribe if captions are absent or invalid
+- [x] **RECON-EFF-02
+**: YouTube caption cleaning — strip auto-caption artifacts (`[Music]`, repeated words, sound descriptions) from extracted VTT captions
+- [ ] **RECON-EFF-03**: Instagram caption-as-transcript — use post caption text directly as transcript when ≥ 10 words; skip download+transcribe for those posts
+- [x] **RECON-EFF-04
+**: Groq Whisper API as default transcription provider (free tier) with local faster-whisper fallback
+- [x] **RECON-EFF-05
+**: Transcript cache upgrade — flat `.txt` files → SQLite-backed cache with TTL eviction and queryable metadata (source, platform, timestamp, word count)
+- [x] **RECON-EFF-06
+**: Multi-language YouTube caption support — respect target language config when fetching captions
+- [ ] **RECON-EFF-07**: Existing recon tests pass with updated mocks; new tests cover caption extraction, cleaning, cache upgrade, and transcript validation
 
 ---
 

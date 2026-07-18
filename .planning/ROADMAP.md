@@ -12,12 +12,13 @@
 - [x] **Phase 4: CI Pipeline & Extended Tests** — Add schema validation tests, mock-based API tests, and GitHub Actions automation
 - [x] **Phase 5: Channel Onboarding & Branding** — Link a YouTube channel via OAuth, set channel description/tags, upload avatar/banner/watermark, and configure default upload settings so the channel is ready for content
 - [x] **Phase 6: YouTube Publishing** — Upload videos with full metadata (category, language, playlist, chapters, audience settings), SEO title/desc/tags, thumbnail, pin comment, and post-hoc updates ✓
-- [x] **Phase 7: Analytics Collection & Storage** — Dual-phase polling (24h basic + 72h deep), schema-validated persistence ✓
+- [x] **Phase 7: Analytics Collection & Storage** — On-demand dual-phase collection (24h basic + 72h deep), schema-validated persistence ✓
 - [x] **Phase 8: Brain Evolution Loop** — Evolve agent brain learning weights from real performance data to close the content strategy feedback loop ✓
 - [x] **Phase 9: Audio Production (Per-Scene)** — Per-scene TTS → per-scene force alignment (Groq API / faster-whisper) → per-scene subtitle generation → script files rewritten inline with timestamps ✓
-- [ ] **Phase 10: Visual Asset Pipeline** — Stock API sourcing (Pexels/Pixabay/Freesound), character SVGs, global + per-channel consistent asset library, SQLite-backed asset cache with TTL eviction
-- [ ] **Phase 11: Scene Assembly & Final Render** — Per-scene two-pass render (HyperFrames → FFmpeg) → assembly with subtitles + crossfade transitions → multi-format output (16:9 / 9:16 / 1:1) → temp cleanup
-- [ ] **Phase 12: Agent Documentation** — Write AGENTS.md workflow directives and process-specific markdown files for agentic automation
+- [x] **Phase 10: Visual Asset Pipeline** — Stock API sourcing (Pexels/Pixabay/Freesound), character SVGs, global + per-channel consistent asset library, SQLite-backed asset cache with TTL eviction ✓
+- [x] **Phase 11: Scene Assembly & Final Render** — Per-scene two-pass render (HyperFrames GSAP compositions → Playwright → FFmpeg) → assembly with subtitles + crossfade transitions → multi-format output (16:9 / 9:16 / 1:1) → temp cleanup ✓
+- [ ] **Phase 12: Recon Efficiency Rework** — Caption-first YouTube pipeline (no download for captioned videos), Instagram caption-as-transcript, Groq transcription provider, SQLite-backed transcript cache, transcript cleaning
+- [ ] **Phase 13: Agent Documentation** — Write AGENTS.md workflow directives and process-specific markdown files for agentic automation
 
 ---
 
@@ -150,12 +151,12 @@ Plans:
 - [x] 06-03-PLAN.md — Post-publish actions: playlist, comment, metadata update (PUBLISH-09, 11, 12, 13)
 
 ### Phase 7: Analytics Collection & Storage
-**Goal**: Performance data from published videos is collected in a dual-phase polling loop — basic velocity metrics at 24h, deep behavioral metrics at 72h — validated against schema, and persisted for downstream analysis.
+**Goal**: Performance data from published videos is collected on-demand in a dual-phase workflow — basic velocity metrics at 24h+, deep behavioral metrics at 72h+ — validated against schema, and persisted for downstream analysis.
 **Depends on**: Phase 6 (needs published videos to collect analytics)
 **Requirements**: ANALYTICS-01, ANALYTICS-02, ANALYTICS-06
 **Success Criteria** (what must be TRUE):
-    1. Basic public metrics (view count) polled 24 hours post-publish to assess initial velocity
-    2. Deep analytical metrics (CTR, AVD, audience retention) exclusively polled after a mandatory 72-hour delay since video's public publish timestamp — YouTube Analytics API requires 48-72h to stabilize retention data
+    1. Basic public metrics (view count) collected 24+ hours post-publish to assess initial velocity
+    2. Deep analytical metrics (CTR, AVD, audience retention) collected after 72+ hours since video's public publish timestamp — YouTube Analytics API requires 48-72h to stabilize retention data
     3. Each video's analytics entry stored as JSONL with schema-validated fields split by tier (basic at 24h, full at 72h)
     4. Aggregate functions in `analytics/insights.py` compile metrics across channels: averages, trends, and comparative rankings
 **Plans**: 2 plans (both complete)
@@ -177,7 +178,7 @@ Plans:
 **Completed**: 2026-07-14 — 2 plans, 4/4 ANALYTICS requirements
 
 Plans:
-- [x] 08-01-PLAN.md — Brain updater & scheduler: update_weights, update_hook_preferences, update_performance_patterns, update_brain, run_scheduled_collection (ANALYTICS-03, 04, 07)
+- [x] 08-01-PLAN.md — Brain updater & batch collection: update_weights, update_hook_preferences, update_performance_patterns, update_brain, run_scheduled_collection (ANALYTICS-03, 04, 07)
 - [x] 08-02-PLAN.md — Scoring engine integration: channel-aware brain loading, scoring with updated weights (ANALYTICS-05)
 
 ### Phase 9: Audio Production (Per-Scene)
@@ -203,49 +204,75 @@ Plans:
 - [x] 09-03-PLAN.md — Pipeline orchestrator + temp asset lifecycle + inline timestamp annotation + full test suite (439 tests, 0 failures)
 
 ### Phase 10: Visual Asset Pipeline
-**Goal**: Stock API sourcing (Pexels/Pixabay/Freesound), character SVGs, global + per-channel consistent asset library, SQLite-backed asset cache with TTL eviction.
+**Goal**: Stock API sourcing (Pexels/Pixabay/Freesound/Wikimedia Commons), character SVG models, global + per-channel consistent asset library with SQLite-backed cache, and Wikimedia Commons integration with British Library vintage illustration preference.
 **Depends on**: Phase 1 (scene-level checkpoints for asset artifacts)
 **Requirements**: PROD-VISUAL-01, PROD-VISUAL-02, PROD-VISUAL-03, PROD-VISUAL-04, PROD-VISUAL-05, PROD-VISUAL-06, PROD-VISUAL-07, PROD-VISUAL-08, PROD-VISUAL-09
 **Parallelizable with**: Phase 9 (Audio Production) — no data dependency
 **Success Criteria** (what must be TRUE):
     1. Asset storage split into consistent (`assets/consistent/global/` + `channels/{Name}/assets/`) and temp (`channels/{Name}/active_production/`)
     2. Character SVG models as first-class consistent assets
-    3. Pexels API → B-roll/images; Pixabay fallback; Freesound API → SFX
+    3. Pexels API → B-roll/images; Pixabay fallback; Freesound API → SFX; Wikimedia Commons → public-domain/CC images (no API key)
     4. SQLite-backed asset cache with TTL eviction
     5. All stock API rate limits and quotas respected
-**Plans**: 4 plans
+    6. Wikimedia Commons integration with British Library preference: first searches BL uploads for vintage/historical illustrations, falls back to generic Commons search
+**Plans**: 5 plans
+**Completed**: 2026-07-17 — 5 plans, 9/9 PROD-VISUAL requirements
 
 Plans:
-- [x] 10-01-PLAN.md — Foundation: Base ABC, Storage, Cache, Search (Wave 1)
-- [x] 10-02-PLAN.md — Characters: CharacterResolver with variant lookup (Wave 2)
-- [x] 10-03-PLAN.md — Providers: Pexels, Pixabay, Freesound + fallback chain (Wave 2)
-- [ ] 10-04-PLAN.md — Module exports + dependency cleanup (Wave 3)
+- [x] 10-01-PLAN.md — Foundation: BaseAssetProvider ABC, AssetResult, storage helpers, SQLite AssetCache with TTL, search query generation, tests (78 tests)
+- [x] 10-02-PLAN.md — Character SVG resolver: CharacterResolver with metadata sidecars, variant lookup, channel override priority, tests
+- [x] 10-03-PLAN.md — Stock API providers: PexelsProvider, PixabayProvider, FreesoundProvider, AssetFallbackChain, quota protection, tests
+- [x] 10-04-PLAN.md — Public API barrel + dependency cleanup: full agent_core/assets/__init__.py with all 18 symbols, pyproject.toml cleanup
+- [x] 10-05-PLAN.md — Wikimedia Commons provider: free public-domain/CC image provider, British Library vintage illustration preference, no API key needed, 27 tests
 
 ### Phase 11: Scene Assembly & Final Render
-**Goal**: Script split into scenes → each scene rendered individually via two-pass hybrid (Puppeteer → FFmpeg) → all scene clips assembled with subtitles and transitions → final multi-format output.
-**Depends on**: Phase 1 (scene-level checkpoints), Phase 9 (per-scene audio + subtitles), Phase 10 (consistent + temp assets)
+**Goal**: Per-scene two-pass render (HyperFrames GSAP compositions → Playwright → FFmpeg) → assembly with crossfade transitions + subtitle overlay → multi-format output (16:9 / 9:16 / 1:1) → temp cleanup integration.
+**Depends on**: Phase 9 (per-scene audio + subtitles), Phase 10 (B-roll, character SVGs, assets)
 **Requirements**: PROD-RENDER-01, PROD-RENDER-02, PROD-RENDER-03, PROD-RENDER-04, PROD-RENDER-05, PROD-RENDER-06, PROD-RENDER-07
 **Success Criteria** (what must be TRUE):
-   1. **Script Splitting**: Production workflow receives full script, splits into numbered scenes (`scene_01`, `scene_02`, ...) with per-scene scripts before any generation begins
-   2. **Per-Scene Two-Pass Render**: For each scene:
-      - Pass 1 — HyperFrames generates HTML/CSS blueprint → Puppeteer rasterizes DOM/SVG animations frame-by-frame
-      - Pass 2 — FFmpeg accepts frame stream, overlays per-scene audio (`scene_XX_audio.wav`), produces `scene_XX_clip.mp4`
-   3. **Per-Scene Subtitles**: Per-scene subtitle files (SRT/VTT from Phase 9) overlaid onto corresponding scene clip via HyperFrames at render time — subtitles are burned into the video, not uploaded as separate YouTube caption tracks
-   4. **Final Assembly**: All scene clips concatenated into master video with crossfade transitions between scenes
-   5. **Multi-Format Output**: Master video encoded to 16:9 long-form, 9:16 Shorts, and 1:1 Instagram formats
-   6. **Temp Cleanup**: Per-scene audio, subtitle files, and rendered clips cleaned up after final video published
-   7. Render configuration (resolution, format, templates, quality presets) reads from per-channel `channel_config.json`
-**Plans**: TBD
+    1. Production workflow splits script into numbered scenes before generation begins
+    2. Two-pass hybrid rendering per scene: Playwright renders per-scene HyperFrames composition (GSAP timeline, data-* attributes) via video recording, FFmpeg converts to MP4 clip
+    3. All rendered scene clips assembled into final video with crossfade transitions between scenes
+    4. Per-scene subtitle tracks (SRT/VTT from PROD-AUDIO-05) overlaid onto corresponding scene clips
+    5. Multi-format output (16:9 long-form, 9:16 Shorts, 1:1 Instagram) from assembled master
+    6. Temp assets cleaned up after final video is published
+    7. Render config moved into `channel_config.json` per channel
+**Plans**: 3 plans
+**Completed**: 2026-07-17 — 3 plans, 7/7 PROD-RENDER requirements
 
-### Phase 12: Agent Documentation
+Plans:
+- [x] 11-01-PLAN.md — Render foundation: agent_core/render/ module, FFmpegUtils, scene rendering (HyperFrames GSAP compositions → Playwright → FFmpeg), RenderPipeline orchestrator, tests
+- [x] 11-02-PLAN.md — Assembly + subtitles: crossfade transitions, SRT/VTT subtitle overlay, multi-format output (16:9/9:16/1:1), tests
+- [x] 11-03-PLAN.md — Temp lifecycle + render config + integration: render config in channel_config.json, full pipeline integration tests, 77 total render tests
+
+### Phase 12: Recon Efficiency Rework
+**Goal**: Eliminate unnecessary video downloads by extracting YouTube captions first (free, instant), using Instagram post captions as transcripts when sufficient, upgrading the transcript cache from flat files to SQLite, and switching the default transcription provider to Groq (free tier).
+**Depends on**: Phase 6 (YouTube publishing credentials), Phase 9 (Groq API key for transcription)
+**Requirements**: RECON-EFF-01, RECON-EFF-02, RECON-EFF-03, RECON-EFF-04, RECON-EFF-05, RECON-EFF-06, RECON-EFF-07
+**Success Criteria** (what must be TRUE):
+    1. YouTube competitor analysis does NOT download+transcribe videos that have valid auto-captions — extracted via `yt-dlp --skip-download --write-auto-subs` instead
+    2. Transcripts from YouTube captions are cleaned of auto-caption artifacts (`[Music]`, repeated words, etc.)
+    3. Instagram post captions ≥ 10 words are used directly as transcripts (skip download+transcribe for those)
+    4. Groq Whisper API is the default transcription provider (free tier), with local faster-whisper fallback
+    5. Transcript cache upgraded from flat `.txt` files to SQLite-backed with TTL eviction and queryable metadata
+    6. Multi-language YouTube caption support respects target language config
+     7. All existing recon tests pass with updated mocks; new tests cover caption extraction, cleaning, and cache
+**Plans**: 3 plans
+
+Plans:
+- [ ] 12-01-PLAN.md — Foundation: transcript cleaning, Groq config defaults, SQLite-backed cache
+- [ ] 12-02-PLAN.md — Caption-first extraction: YouTube captions + Instagram caption-as-transcript in pipeline
+- [ ] 12-03-PLAN.md — Test suite: cleaning, cache, and config tests
+
+### Phase 13: Agent Documentation
 **Goal**: Full pipeline workflow is documented in agent-facing markdown files (AGENTS.md, process-specific guides) so any AI CLI (OpenCode, Claude Code, Codex) can autonomously orchestrate the CreatorForge pipeline from discovery through publishing.
-**Depends on**: Phase 11 (need complete pipeline before documenting it)
+**Depends on**: Phase 12 (recon pipeline must be efficient before documenting)
 **Requirements**: DOC-01, DOC-02
 **Success Criteria** (what must be TRUE):
-   1. `AGENTS.md` (or equivalent for OpenCode) at project root describes the full pipeline workflow: discover → angle → script → produce → publish → analyze → learn
-   2. Process-specific markdown files in `.agents/docs/` describe each stage in detail: input contracts, output artifacts, available commands, error recovery procedures
-   3. Process-specific docs note YouTube Studio manual-only operations (end screens, cards, thumbnail A/B testing) as human handoff steps
-   4. A CLI tool or agent can follow the documentation to autonomously run the full pipeline end-to-end without human intervention
+    1. `AGENTS.md` (or equivalent for OpenCode) at project root describes the full pipeline workflow: discover → angle → script → produce → publish → analyze → learn
+    2. Process-specific markdown files in `.agents/docs/` describe each stage in detail: input contracts, output artifacts, available commands, error recovery procedures
+    3. Process-specific docs note YouTube Studio manual-only operations (end screens, cards, thumbnail A/B testing) as human handoff steps
+    4. A CLI tool or agent can follow the documentation to autonomously run the full pipeline end-to-end without human intervention
 **Plans**: TBD
 
 ---
@@ -262,12 +289,14 @@ Phase 1 (Foundation & Pipeline)
   │     └── Phase 7 (Analytics Collection)
   │           └── Phase 8 (Brain Evolution Loop) ✓
   ├── Phase 9 (Audio Production) ✓ ──┐
-  ├── Phase 10 (Visual Pipeline) ────┤
+  ├── Phase 10 (Visual Pipeline) ✓ ──┤
   │               ┌───────────────────┘
   │               ▼
   ├── Phase 11 (Scene Assembly & Render) ←─ Phase 9 + Phase 10 outputs
   │
-  └── Phase 12 (Agent Documentation)
+  ├── Phase 12 (Recon Efficiency Rework) ←─ needs Groq API key
+  │
+  └── Phase 13 (Agent Documentation)
 ```
 
 ---
@@ -285,9 +314,10 @@ Phase 1 (Foundation & Pipeline)
 | 7. Analytics Collection & Storage | 2/2 | Complete ✓ | 2026-07-13 |
 | 8. Brain Evolution Loop | 2/2 | Complete ✓ | 2026-07-14 |
 | 9. Audio Production (Per-Scene) | 3/3 | Complete ✓ | 2026-07-14 |
-| 10. Visual Asset Pipeline | 0/4 | Not started | - |
-| 11. Scene Assembly & Final Render | 0/– | Not started | - |
-| 12. Agent Documentation | 0/– | Not started | - |
+| 10. Visual Asset Pipeline | 5/5 | Complete ✓ | 2026-07-17 |
+| 11. Scene Assembly & Final Render | 3/3 | Complete ✓ | 2026-07-17 |
+| 12. Recon Efficiency Rework | 0/3 | Planning | — |
+| 13. Agent Documentation | 0/– | Not started | - |
 
 ---
 
@@ -302,13 +332,14 @@ Phase 1 (Foundation & Pipeline)
 | PUBLISH (YouTube Publishing) | 13 | Phase 6 | 13/13 ✓ | Complete |
 | ANALYTICS (Analytics & Brain) | 7 | Phases 7-8 | 7/7 ✓ | Complete |
 | PROD-AUDIO (Audio Production) | 6 | Phase 9 | 6/6 ✓ | Complete |
-| PROD-VISUAL (Visual Assets) | 9 | Phase 10 | 9/9 ✓ | Pending |
-| PROD-RENDER (Scene Assembly & Render) | 7 | Phase 11 | 7/7 ✓ | Pending |
-| DOC (Agent Documentation) | 2 | Phase 12 | 2/2 ✓ | Pending |
-| **Total** | **76** | **12 phases** | **76/76 ✓** | **9/12 complete** |
+| PROD-VISUAL (Visual Assets) | 9 | Phase 10 | 9/9 ✓ | Complete (+ Wikimedia Commons provider) |
+| PROD-RENDER (Scene Assembly & Render) | 7 | Phase 11 | 7/7 ✓ | Complete ✓ |
+| RECON-EFF (Recon Efficiency) | 7 | Phase 12 | 7/7 ✓ | Planning |
+| DOC (Agent Documentation) | 2 | Phase 13 | 2/2 ✓ | Pending |
+| **Total** | **83** | **13 phases** | **83/83 ✓** | **11/13 complete** |
 
 ---
 
 *Created: 2026-07-10*
 *Granularity: fine*
-*Revised: 2026-07-14 — Phases 8–9 complete; production/ cleaned up; Phase 9 flow updated: aligner rewrites _script.txt inline with timestamps, remove _alignment.json; custom TTS moved to agent_core/audio/tts/generate.py*
+*Revised: 2026-07-18 — Phase 12 redefined as Recon Efficiency Rework; Phase 13 = Agent Documentation; ROADMAP.md updated*
