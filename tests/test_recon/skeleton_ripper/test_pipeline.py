@@ -824,6 +824,38 @@ class TestRunSkeletonRipper:
 
 
 # ═════════════════════════════════════════════════════════
+# Task 1 TDD: get_video_captions — RED phase
+# ═════════════════════════════════════════════════════════
+
+
+class TestGetVideoCaptions:
+    """TDD RED: Tests for get_video_captions() — function must exist first."""
+
+    def test_import_get_video_captions(self):
+        """get_video_captions can be imported (RED — fails before implementation)."""
+        from agent_core.recon.scraper.youtube import get_video_captions
+        assert callable(get_video_captions)
+
+    def test_returns_none_without_yt_dlp(self):
+        """Without yt-dlp available, returns None (no crash)."""
+        from agent_core.recon.scraper.youtube import get_video_captions
+        result = get_video_captions("dQw4w9WgXcQ")
+        assert result is None
+
+    def test_lang_parameter_defaults_to_en(self):
+        """Default language is 'en'. Unknown lang returns None gracefully."""
+        from agent_core.recon.scraper.youtube import get_video_captions
+        result = get_video_captions("nonexistent_video_id_12345", lang="xx")
+        assert result is None
+
+    def test_returns_none_on_empty_video_id(self):
+        """Empty video ID returns None (yt-dlp will fail)."""
+        from agent_core.recon.scraper.youtube import get_video_captions
+        result = get_video_captions("")
+        assert result is None
+
+
+# ═════════════════════════════════════════════════════════
 # TDD Gate: test count verification
 # ═════════════════════════════════════════════════════════
 
