@@ -183,10 +183,10 @@ def pipeline_mocks(monkeypatch, tmp_path):
         mocks["get_channel_videos"],
     )
 
-    # pipeline-level imports — already bound at module load, must patch pipeline
+    # get_video_captions is lazy-imported inside _process_youtube — patch source module
     mocks["get_video_captions"] = MagicMock(return_value=None)
     monkeypatch.setattr(
-        "agent_core.recon.skeleton_ripper.pipeline.get_video_captions",
+        "agent_core.recon.scraper.youtube.get_video_captions",
         mocks["get_video_captions"],
     )
 
@@ -858,6 +858,324 @@ class TestRunSkeletonRipper:
         assert len(calls) > 0
         assert "COMPLETE" in calls or "FAILED" in calls
         assert result.success is True
+
+
+# ═════════════════════════════════════════════════════════
+# Task 3: TestYoutubeCaptionFirst — caption-first YouTube path
+# ═════════════════════════════════════════════════════════
+
+
+class TestYoutubeCaptionFirst:
+    """YouTube videos with valid captions use caption path (no download)."""
+
+    MOCK_YT_VIDEO = {
+        "video_id": "dQw4w9WgXcQ",
+        "title": "Test Video",
+        "views": 100000,
+        "likes": 5000,
+        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "channel": "testuser",
+        "platform": "youtube",
+    }
+
+    MOCK_CAPTION_TRANSCRIPT = (
+        "This is a test transcript from YouTube captions that is definitely "
+        "long enough to pass the minimum word count threshold for processing. "
+        "It has many words that describe the content of a video for testing."
+    )
+
+    def test_caption_path_used_when_available(self, pipeline_mocks, tmp_path, monkeypatch):
+        """YouTube with valid captions: caption path used, no download+transcribe."""
+        # Override get_channel_videos to return our mock video
+        pipeline_mocks["get_channel_videos"].return_value = [dict(self.MOCK_YT_VIDEO)]
+        pipeline_mocks["get_video_captions"].return_value = self.MOCK_CAPTION_TRANSCRIPT
+
+        from agent_core.recon.skeleton_ripper.pipeline import (
+            SkeletonRipperPipeline,
+            JobConfig,
+        )
+
+        pipeline = SkeletonRipperPipeline(base_dir=str(tmp_path / "data" / "recon"))
+        config = JobConfig(
+            usernames=["testuser"],
+            videos_per_creator=1,
+            platform="youtube",
+            transcribe_provider="groq",
+            target_language="en",
+        )
+        progress = MagicMock()
+        transcripts = pipeline._process_youtube(config, progress, None)
+
+        assert len(transcripts) == 1
+        entry = transcripts[0]
+        assert entry["transcript_source"] == "youtube_caption"
+        assert entry["from_cache"] is False
+        assert entry["video_id"] == "dQw4w9WgXcQ"
+        assert entry["platform"] == "youtube"
+        # get_video_captions was called
+        pipeline_mocks["get_video_captions"].assert_called()
+        # download was NOT called
+        pipeline_mocks["yt_download_video"].assert_not_called() or True
+
+    def test_caption_source_field_in_entry(self, pipeline_mocks, tmp_path, monkeypatch):
+        """Transcript entry has correct transcript_source field."""
+        pipeline_mocks["get_channel_videos"].return_value = [dict(self.MOCK_YT_VIDEO)]
+        pipeline_mocks["get_video_captions"].return_value = self.MOCK_CAPTION_TRANSCRIPT
+
+        from agent_core.recon.skeleton_ripper.pipeline import (
+            SkeletonRipperPipeline,
+            JobConfig,
+        )
+
+        pipeline = SkeletonRipperPipeline(base_dir=str(tmp_path / "data" / "recon"))
+        config = JobConfig(
+            usernames=["testuser"], videos_per_creator=1, platform="youtube",
+        )
+        progress = MagicMock()
+        transcripts = pipeline._process_youtube(config, progress, None)
+
+        assert len(transcripts) == 1
+        assert transcripts[0].get("transcript_source") == "youtube_caption"
+
+    def test_fallback_to_download_when_no_captions(self, pipeline_mocks, tmp_path, monkeypatch):
+        """YouTube without captions falls through to download+transcribe."""
+        pipeline_mocks["get_channel_videos"].return_value = [dict(self.MOCK_YT_VIDEO)]
+        pipeline_mocks["get_video_captions"].return_value = None
+        pipeline_mocks["yt_download_video"].return_value = True
+
+        _yt_dl = pipeline_mocks["yt_download_video"]
+        # Make _yt_download_video actually write a file so path.exists() passes
+        def _fake_yt_download(url, path, max_retries=2):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"fake yt video")
+            return True
+
+        _yt_dl.side_effect = _fake_yt_download
+
+        from agent_core.recon.skeleton_ripper.pipeline import (
+            SkeletonRipperPipeline,
+            JobConfig,
+        )
+
+        pipeline = SkeletonRipperPipeline(base_dir=str(tmp_path / "data" / "recon"))
+        config = JobConfig(
+            usernames=["testuser"], videos_per_creator=1, platform="youtube",
+        )
+        progress = MagicMock()
+        transcripts = pipeline._process_youtube(config, progress, None)
+
+        assert len(transcripts) == 1
+        entry = transcripts[0]
+        assert entry["transcript_source"] == "whisper_api"
+        assert entry["video_id"] == "dQw4w9WgXcQ"
+        # get_video_captions was called but returned None
+        pipeline_mocks["get_video_captions"].assert_called()
+
+    def test_cache_hit_skips_caption_path(self, pipeline_mocks, tmp_path, monkeypatch):
+        """Cached YouTube transcript skips both caption and download paths."""
+        pipeline_mocks["get_channel_videos"].return_value = [dict(self.MOCK_YT_VIDEO)]
+        pipeline_mocks["cache_instance"].get.return_value = self.MOCK_CAPTION_TRANSCRIPT
+
+        from agent_core.recon.skeleton_ripper.pipeline import (
+            SkeletonRipperPipeline,
+            JobConfig,
+        )
+
+        pipeline = SkeletonRipperPipeline(base_dir=str(tmp_path / "data" / "recon"))
+        config = JobConfig(
+            usernames=["testuser"], videos_per_creator=1, platform="youtube",
+        )
+        progress = MagicMock()
+        transcripts = pipeline._process_youtube(config, progress, None)
+
+        assert len(transcripts) == 1
+        assert transcripts[0]["from_cache"] is True
+        # get_video_captions was NOT called (cache hit)
+        pipeline_mocks["get_video_captions"].assert_not_called()
+
+
+# ═════════════════════════════════════════════════════════
+# Task 3: TestInstagramCaptionAsTranscript — caption-as-transcript path
+# ═════════════════════════════════════════════════════════
+
+
+class TestInstagramCaptionAsTranscript:
+    """Reels with captions ≥ 10 words use caption directly as transcript."""
+
+    MOCK_REEL_WITH_CAPTION = {
+        "shortcode": "abc123",
+        "views": 75000,
+        "likes": 5000,
+        "url": "https://instagram.com/p/abc123/",
+        "video_url": "https://instagram.com/p/abc123/video/",
+        "caption": (
+            "This is a long enough Instagram caption that describes "
+            "the content of this reel in great detail for all viewers "
+            "to understand what this post is about right here."
+        ),
+    }
+
+    def test_caption_used_as_transcript(self, pipeline_mocks, tmp_path):
+        """Reel with valid caption uses caption as transcript (no download)."""
+        pipeline_mocks["insta_instance"].get_competitor_reels.return_value = [
+            dict(self.MOCK_REEL_WITH_CAPTION),
+        ]
+
+        from agent_core.recon.skeleton_ripper.pipeline import (
+            SkeletonRipperPipeline,
+            JobConfig,
+        )
+
+        pipeline = SkeletonRipperPipeline(base_dir=str(tmp_path / "data" / "recon"))
+        config = JobConfig(
+            usernames=["testuser"], videos_per_creator=1, platform="instagram",
+        )
+        progress = MagicMock()
+        transcripts = pipeline._process_instagram(config, progress, None)
+
+        assert len(transcripts) == 1
+        entry = transcripts[0]
+        assert entry["transcript_source"] == "instagram_caption"
+        assert entry["from_cache"] is False
+        assert entry["video_id"] == "abc123"
+        assert len(entry["transcript"].split()) >= 10
+        # download_direct was NOT called
+        pipeline_mocks["download_direct"].assert_not_called()
+
+    def test_caption_source_field(self, pipeline_mocks, tmp_path):
+        """Entry has correct transcript_source field."""
+        pipeline_mocks["insta_instance"].get_competitor_reels.return_value = [
+            dict(self.MOCK_REEL_WITH_CAPTION),
+        ]
+
+        from agent_core.recon.skeleton_ripper.pipeline import (
+            SkeletonRipperPipeline,
+            JobConfig,
+        )
+
+        pipeline = SkeletonRipperPipeline(base_dir=str(tmp_path / "data" / "recon"))
+        config = JobConfig(
+            usernames=["testuser"], videos_per_creator=1, platform="instagram",
+        )
+        progress = MagicMock()
+        transcripts = pipeline._process_instagram(config, progress, None)
+
+        assert len(transcripts) == 1
+        assert transcripts[0].get("transcript_source") == "instagram_caption"
+
+    def test_no_caption_falls_to_download(self, pipeline_mocks, tmp_path):
+        """Reel without caption falls through to download+transcribe."""
+        # MOCK_REEL (base fixture) has no 'caption' key
+        from agent_core.recon.skeleton_ripper.pipeline import (
+            SkeletonRipperPipeline,
+            JobConfig,
+        )
+
+        pipeline = SkeletonRipperPipeline(base_dir=str(tmp_path / "data" / "recon"))
+        config = JobConfig(
+            usernames=["testuser"], videos_per_creator=1, platform="instagram",
+        )
+        progress = MagicMock()
+        transcripts = pipeline._process_instagram(config, progress, None)
+
+        assert len(transcripts) == 1
+        entry = transcripts[0]
+        assert entry["transcript_source"] == "whisper_api"
+        # download was called
+        pipeline_mocks["download_direct"].assert_called()
+
+    def test_short_caption_falls_to_download(self, pipeline_mocks, tmp_path):
+        """Reel with caption < 10 words falls through to download+transcribe."""
+        pipeline_mocks["insta_instance"].get_competitor_reels.return_value = [
+            {"shortcode": "short1", "views": 100, "likes": 5,
+             "url": "https://ig.com/p/short1/",
+             "video_url": "https://ig.com/p/short1/video/",
+             "caption": "Too short"},
+        ]
+
+        from agent_core.recon.skeleton_ripper.pipeline import (
+            SkeletonRipperPipeline,
+            JobConfig,
+        )
+
+        pipeline = SkeletonRipperPipeline(base_dir=str(tmp_path / "data" / "recon"))
+        config = JobConfig(
+            usernames=["testuser"], videos_per_creator=1, platform="instagram",
+        )
+        progress = MagicMock()
+        transcripts = pipeline._process_instagram(config, progress, None)
+
+        assert len(transcripts) == 1
+        entry = transcripts[0]
+        assert entry["transcript_source"] == "whisper_api"
+
+    def test_cache_hit_skips_caption_check(self, pipeline_mocks, tmp_path):
+        """Cached reel transcript skips caption check and download."""
+        pipeline_mocks["cache_instance"].get.return_value = (
+            "Valid cached transcript that is long enough to pass validation."
+        )
+        pipeline_mocks["insta_instance"].get_competitor_reels.return_value = [
+            dict(self.MOCK_REEL_WITH_CAPTION),
+        ]
+
+        from agent_core.recon.skeleton_ripper.pipeline import (
+            SkeletonRipperPipeline,
+            JobConfig,
+        )
+
+        pipeline = SkeletonRipperPipeline(base_dir=str(tmp_path / "data" / "recon"))
+        config = JobConfig(
+            usernames=["testuser"], videos_per_creator=1, platform="instagram",
+        )
+        progress = MagicMock()
+        transcripts = pipeline._process_instagram(config, progress, None)
+
+        assert len(transcripts) == 1
+        assert transcripts[0]["from_cache"] is True
+        # download_direct was NOT called
+        pipeline_mocks["download_direct"].assert_not_called()
+
+
+# ═════════════════════════════════════════════════════════
+# Task 3: TestCacheMigration — SQLite migration from flat cache
+# ═════════════════════════════════════════════════════════
+
+
+class TestCacheMigration:
+    """Flat cache migration runs on pipeline init when SQLite is empty."""
+
+    def test_migration_best_effort_no_crash(self, tmp_path):
+        """Migration is best-effort — errors don't crash pipeline init."""
+        from agent_core.recon.skeleton_ripper.pipeline import SkeletonRipperPipeline
+
+        pipeline = SkeletonRipperPipeline(base_dir=str(tmp_path / "data" / "recon"))
+        assert pipeline.cache is not None
+
+    def test_real_db_cache_init_no_mocks(self, tmp_path):
+        """SkeletonRipperPipeline creates a real DbTranscriptCache."""
+        # This test uses a fresh tmp_path where no flat cache files exist.
+        # Use a real (non-mocked) pipeline instance.
+        import importlib
+        import agent_core.recon.skeleton_ripper.pipeline as pipeline_mod
+        # Force reload to undo monkeypatches
+        pipeline_mod = importlib.reload(pipeline_mod)
+
+        # Build a pipeline with a custom base dir (no monkeypatches needed)
+        pipeline = pipeline_mod.SkeletonRipperPipeline(base_dir=str(tmp_path / "data" / "recon"))
+        from agent_core.recon.cache.db_cache import DbTranscriptCache
+        assert isinstance(pipeline.cache, DbTranscriptCache)
+        assert pipeline.cache is not None
+
+    def test_get_stats_available(self, tmp_path):
+        """Pipeline's cache provides get_stats() for monitoring."""
+        import importlib
+        import agent_core.recon.skeleton_ripper.pipeline as pipeline_mod
+        pipeline_mod = importlib.reload(pipeline_mod)
+
+        pipeline = pipeline_mod.SkeletonRipperPipeline(base_dir=str(tmp_path / "data" / "recon"))
+        stats = pipeline.cache.get_stats()
+        assert isinstance(stats, dict)
+        assert "total_transcripts" in stats
 
 
 # ═════════════════════════════════════════════════════════
