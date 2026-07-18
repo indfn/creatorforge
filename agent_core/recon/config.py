@@ -6,8 +6,8 @@ Credentials loaded from .env (project root). Legacy .credentials file as fallbac
 
 import os
 import json
-from pathlib import Path
 import stat
+from pathlib import Path
 from typing import Optional, Dict, List
 from dataclasses import dataclass
 from cryptography.fernet import Fernet
@@ -16,53 +16,11 @@ from cryptography.fernet import Fernet
 PIPELINE_DIR = Path(__file__).parent.parent.parent
 DATA_DIR = PIPELINE_DIR / "data"
 RECON_DATA_DIR = DATA_DIR / "recon"
+CREDENTIALS_KEY_DIR = RECON_DATA_DIR
+CREDENTIALS_KEY_FILE = CREDENTIALS_KEY_DIR / "credentials.key"
 CREDENTIALS_FILE = RECON_DATA_DIR / ".credentials"
 BRAIN_FILE = DATA_DIR / "agent-brain.json"
 ENV_FILE = PIPELINE_DIR / ".env"
-CREDENTIALS_KEY_DIR = Path.home() / ".creatorforge"
-CREDENTIALS_KEY_FILE = CREDENTIALS_KEY_DIR / "credentials.key"
-
-
-def _get_encryption_key() -> bytes:
-    """Get the Fernet encryption key for credential storage.
-
-    Priority:
-    1. CREDENTIALS_ENCRYPTION_KEY environment variable
-    2. ~/.creatorforge/credentials.key file (created on first use)
-    3. Auto-generate and persist to ~/.creatorforge/credentials.key
-    """
-    env_key = os.environ.get("CREDENTIALS_ENCRYPTION_KEY")
-    if env_key:
-        return env_key.encode("utf-8")
-
-    if CREDENTIALS_KEY_FILE.exists():
-        return CREDENTIALS_KEY_FILE.read_bytes()
-
-    # Generate a new key on first use
-    key = Fernet.generate_key()
-    CREDENTIALS_KEY_DIR.mkdir(parents=True, exist_ok=True)
-    CREDENTIALS_KEY_FILE.write_bytes(key)
-    CREDENTIALS_KEY_FILE.chmod(0o600)
-    return key
-
-
-def _encrypt_credentials(creds: Dict[str, str]) -> bytes:
-    """Encrypt credentials dict as JSON with Fernet."""
-    key = _get_encryption_key()
-    fernet = Fernet(key)
-    plaintext = json.dumps(creds, ensure_ascii=False, indent=2).encode("utf-8")
-    return fernet.encrypt(plaintext)
-
-
-def _decrypt_credentials(data: bytes) -> Optional[Dict[str, str]]:
-    """Decrypt Fernet-encrypted credentials. Returns None if decryption fails."""
-    try:
-        key = _get_encryption_key()
-        fernet = Fernet(key)
-        plaintext = fernet.decrypt(data)
-        return json.loads(plaintext.decode("utf-8"))
-    except Exception:
-        return None
 
 
 def _load_env_file(path: Path) -> Dict[str, str]:
@@ -90,6 +48,35 @@ def _load_env_file(path: Path) -> Dict[str, str]:
     return env
 
 
+def _get_encryption_key() -> bytes:
+    key_b64 = os.environ.get("CREDENTIALS_ENCRYPTION_KEY")
+    if key_b64:
+        return key_b64.encode("utf-8")
+    if CREDENTIALS_KEY_FILE.exists():
+        return CREDENTIALS_KEY_FILE.read_bytes()
+    CREDENTIALS_KEY_DIR.mkdir(parents=True, exist_ok=True)
+    key = Fernet.generate_key()
+    CREDENTIALS_KEY_FILE.write_bytes(key)
+    CREDENTIALS_KEY_FILE.chmod(0o600)
+    return key
+
+
+def _encrypt_credentials(creds: Dict[str, str]) -> bytes:
+    key = _get_encryption_key()
+    fernet = Fernet(key)
+    return fernet.encrypt(json.dumps(creds, ensure_ascii=False).encode("utf-8"))
+
+
+def _decrypt_credentials(data: bytes) -> Optional[Dict[str, str]]:
+    try:
+        key = _get_encryption_key()
+        fernet = Fernet(key)
+        raw = fernet.decrypt(data)
+        return json.loads(raw.decode("utf-8"))
+    except Exception:
+        return None
+
+
 @dataclass
 class Competitor:
     """A competitor from the agent brain."""
@@ -110,10 +97,11 @@ class ReconConfig:
     llm_model: str = "gpt-4o-mini"
     llm_provider: str = "custom"
     transcribe_api_key: Optional[str] = None
-    transcribe_base_url: str = "https://api.openai.com/v1"
-    transcribe_model: str = "whisper-1"
-    transcribe_provider: str = "openai"
+    transcribe_base_url: str = "https://api.groq.com/openai/v1"
+    transcribe_model: str = "whisper-large-v3-turbo"
+    transcribe_provider: str = "groq"
     whisper_model: str = "small.en"
+    target_language: str = "en"
 
 
 def load_competitors() -> List[Competitor]:
@@ -144,23 +132,23 @@ def load_credentials() -> Dict[str, str]:
     """
     creds = {}
 
-    # Load .env from project root
-    env_vars = _load_env_file(ENV_FILE)
-
-    # Load .credentials — try encrypted (Fernet) first, fall back to legacy plaintext
+    # Load .credentials — try decryption first, fall back to plaintext
     if CREDENTIALS_FILE.exists():
-        raw = CREDENTIALS_FILE.read_bytes()
-        decrypted = _decrypt_credentials(raw)
+        raw_bytes = CREDENTIALS_FILE.read_bytes()
+        decrypted = _decrypt_credentials(raw_bytes)
         if decrypted is not None:
             creds.update(decrypted)
         else:
-            # Legacy plaintext fallback
-            for line in raw.decode("utf-8").splitlines():
-                line = line.strip()
-                if '=' in line and not line.startswith('#'):
-                    k, v = line.split('=', 1)
-                    if k.strip() not in creds:
-                        creds[k.strip()] = v.strip()
+            with open(CREDENTIALS_FILE, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if '=' in line and not line.startswith('#'):
+                        key, value = line.split('=', 1)
+                        if key.strip() not in creds:
+                            creds[key.strip()] = value.strip()
+
+    # Load .env from project root
+    env_vars = _load_env_file(ENV_FILE)
 
     # Override with .env file values
     creds.update(env_vars)
@@ -170,6 +158,7 @@ def load_credentials() -> Dict[str, str]:
         "IG_USERNAME": "ig_username",
         "IG_PASSWORD": "ig_password",
         "LLM_API_KEY": "llm_api_key",
+        "GROQ_API_KEY": "transcribe_api_key",  # fallback — TRANSCRIBE_API_KEY takes priority
         "TRANSCRIBE_API_KEY": "transcribe_api_key",
         "OPENAI_API_KEY": "openai_api_key",
         "LLM_BASE_URL": "llm_base_url",
@@ -178,6 +167,7 @@ def load_credentials() -> Dict[str, str]:
         "TRANSCRIBE_MODEL": "transcribe_model",
         "TRANSCRIBE_PROVIDER": "transcribe_provider",
         "WHISPER_MODEL": "whisper_model",
+        "RECON_TARGET_LANGUAGE": "target_language",
     }
 
     for env_var, cred_key in env_map.items():
@@ -189,7 +179,7 @@ def load_credentials() -> Dict[str, str]:
 
 
 def save_credentials(creds: Dict[str, str]):
-    """Save credentials to .credentials file (encrypted with Fernet, 0600 perms)."""
+    """Save credentials to .credentials file (encrypted)."""
     RECON_DATA_DIR.mkdir(parents=True, exist_ok=True)
     encrypted = _encrypt_credentials(creds)
     CREDENTIALS_FILE.write_bytes(encrypted)
@@ -204,6 +194,7 @@ def load_config() -> ReconConfig:
     llm_api_key = (creds.get("llm_api_key") or creds.get("LLM_API_KEY")
                    or creds.get("openai_api_key") or creds.get("OPENAI_API_KEY"))
     transcribe_api_key = (creds.get("transcribe_api_key") or creds.get("TRANSCRIBE_API_KEY")
+                          or creds.get("groq_api_key") or creds.get("GROQ_API_KEY")
                           or creds.get("openai_api_key") or creds.get("OPENAI_API_KEY"))
 
     return ReconConfig(
@@ -217,8 +208,9 @@ def load_config() -> ReconConfig:
         transcribe_api_key=transcribe_api_key,
         transcribe_base_url=creds.get("transcribe_base_url") or creds.get("TRANSCRIBE_BASE_URL", "https://api.openai.com/v1"),
         transcribe_model=creds.get("transcribe_model") or creds.get("TRANSCRIBE_MODEL", "whisper-1"),
-        transcribe_provider=creds.get("transcribe_provider") or creds.get("TRANSCRIBE_PROVIDER", "openai"),
+        transcribe_provider=creds.get("transcribe_provider") or creds.get("TRANSCRIBE_PROVIDER", "groq"),
         whisper_model=creds.get("whisper_model") or creds.get("WHISPER_MODEL", "small.en"),
+        target_language=creds.get("target_language") or creds.get("RECON_TARGET_LANGUAGE", "en"),
     )
 
 
