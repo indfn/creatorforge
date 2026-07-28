@@ -19,7 +19,9 @@
 <br/>
 
 ```bash
-git clone https://github.com/indfn/creatorforge.git && cd creatorforge && bash scripts/init-viral-command.sh
+git clone https://github.com/indfn/creatorforge.git
+cd creatorforge
+bash scripts/init-creatorforge.sh
 ```
 
 <p align="center">Works on Mac, Windows (WSL), and Linux.</p>
@@ -41,7 +43,7 @@ git clone https://github.com/indfn/creatorforge.git && cd creatorforge && bash s
 ```bash
 git clone https://github.com/indfn/creatorforge.git
 cd creatorforge
-bash scripts/init-viral-command.sh
+bash scripts/init-creatorforge.sh
 ```
 
 ### 2. Set up API keys
