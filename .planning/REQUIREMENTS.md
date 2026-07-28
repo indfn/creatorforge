@@ -125,17 +125,28 @@
 
 ### Recon Efficiency (RECON-EFF)
 
-- [ ] **RECON-EFF-01**: YouTube caption-first extraction — use `yt-dlp --skip-download --write-auto-subs --sub-lang en` to grab auto-captions before downloading audio; only download+transcribe if captions are absent or invalid
+- [x] **RECON-EFF-01**: YouTube caption-first extraction — use `yt-dlp --skip-download --write-auto-subs --sub-lang en` to grab auto-captions before downloading audio; only download+transcribe if captions are absent or invalid
 - [x] **RECON-EFF-02
 **: YouTube caption cleaning — strip auto-caption artifacts (`[Music]`, repeated words, sound descriptions) from extracted VTT captions
-- [ ] **RECON-EFF-03**: Instagram caption-as-transcript — use post caption text directly as transcript when ≥ 10 words; skip download+transcribe for those posts
+- [x] **RECON-EFF-03**: Instagram caption-as-transcript — use post caption text directly as transcript when ≥ 10 words; skip download+transcribe for those posts
 - [x] **RECON-EFF-04
 **: Groq Whisper API as default transcription provider (free tier) with local faster-whisper fallback
 - [x] **RECON-EFF-05
 **: Transcript cache upgrade — flat `.txt` files → SQLite-backed cache with TTL eviction and queryable metadata (source, platform, timestamp, word count)
 - [x] **RECON-EFF-06
 **: Multi-language YouTube caption support — respect target language config when fetching captions
-- [ ] **RECON-EFF-07**: Existing recon tests pass with updated mocks; new tests cover caption extraction, cleaning, cache upgrade, and transcript validation
+- [x] **RECON-EFF-07**: Existing recon tests pass with updated mocks; new tests cover caption extraction, cleaning, cache upgrade, and transcript validation
+
+---
+
+### Onboarding Infrastructure (ONBOARD)
+
+- [x] **ONBOARD-01**: `install.sh` clones correct repo and runs canonical `init-creatorforge.sh` bootstrap
+- [x] **ONBOARD-02**: `creatorforge doctor` CLI checks project structure, CLI tools, API keys, credential encryption, OAuth tokens, and network connectivity
+- [x] **ONBOARD-03**: `scripts/setup-env.py` interactively walks through API key groups, opens signup URLs, saves to `.env`
+- [x] **ONBOARD-04**: `scripts/setup-ig-token.py` supports automatic local-server OAuth redirect capture (default) with `--manual` fallback
+- [x] **ONBOARD-05**: `scripts/backup-credentials-key.py` exports Fernet key to `.env` (--to-env) or stdout (--export)
+- [x] **ONBOARD-06**: `scripts/install-crons.sh` and `scripts/uninstall-crons.sh` manage scheduled jobs; `cron/` directory contains launchd plist templates
 
 ---
 
@@ -173,4 +184,4 @@ _(filled by roadmap)_
 
 ---
 
-*Last updated: 2026-07-10 — added CHANNEL-01 through CHANNEL-07, PUBLISH-09 through PUBLISH-13, removed caption upload (subtitles burned into video via HyperFrames at render time)*
+*Last updated: 2026-07-19 — added ONBOARD-01 through ONBOARD-06 (Phase 13: Onboarding Infrastructure)*

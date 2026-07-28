@@ -41,6 +41,14 @@ class TestPexelsProvider:
     def test_pexels_search_mocked_response(self, mocker):
         """Mocked Pexels API returns correct AssetResult fields."""
         mocker.patch.dict("os.environ", {"PEXELS_API_KEY": "test_key_123"})
+        mocker.patch(
+            "agent_core.assets.providers.pexels.QuotaBudget.can_consume",
+            return_value=True,
+        )
+        mocker.patch(
+            "agent_core.assets.providers.pexels.QuotaBudget.consume",
+            return_value=True,
+        )
 
         from agent_core.assets.providers.pexels import PexelsProvider
 

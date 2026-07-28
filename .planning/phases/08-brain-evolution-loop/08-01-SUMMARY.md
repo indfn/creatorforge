@@ -2,7 +2,7 @@
 phase: 08-brain-evolution-loop
 plan: 01
 subsystem: analytics
-tags: [brain-evolution, scheduler, weight-update, hook-preferences, performance-patterns]
+tags: [brain-evolution, batch-collection, weight-update, hook-preferences, performance-patterns]
 key-files:
   created:
     - agent_core/analytics/brain_updater.py
@@ -23,7 +23,7 @@ tech-stack:
 
 # Phase 8 Plan 01: Brain Updater & Scheduler — Execution Summary
 
-**One-liner:** Implement the brain evolution loop — `update_weights()`, `update_hook_preferences()`, `update_performance_patterns()`, `update_brain()` orchestrator in `brain_updater.py`, plus `run_scheduled_collection()` in `collector.py` for dual-phase polling.
+**One-liner:** Implement the brain evolution loop — `update_weights()`, `update_hook_preferences()`, `update_performance_patterns()`, `update_brain()` orchestrator in `brain_updater.py`, plus `run_scheduled_collection()` in `collector.py` for dual-phase on-demand collection.
 
 ## Task Completion
 

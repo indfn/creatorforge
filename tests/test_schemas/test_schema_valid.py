@@ -1,4 +1,4 @@
-"""Test that all 15 JSON Schemas accept minimal valid data."""
+"""Test that all 17 JSON Schemas accept minimal valid data."""
 
 import pytest
 
@@ -291,6 +291,35 @@ VALID_CASES = [
             },
         },
         "minimal valid script (longform with script_structure)",
+    ),
+    # ── Phase 9 schemas ────────────────────────────────────────────────
+    (
+        "tts-config.schema.json",
+        {
+            "provider": "gemini",
+            "characters": {
+                "narrator": {
+                    "voice": "en-US-Neural2-A",
+                    "style": "default",
+                    "pace": "normal",
+                    "accent": "us",
+                    "profile": "default",
+                },
+            },
+        },
+        "minimal valid tts-config",
+    ),
+    (
+        "alignment.schema.json",
+        [
+            {
+                "word": "Hello",
+                "start": 0.0,
+                "end": 0.3,
+                "probability": 0.95,
+            },
+        ],
+        "minimal valid alignment entry",
     ),
 ]
 

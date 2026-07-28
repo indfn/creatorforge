@@ -17,8 +17,9 @@
 - [x] **Phase 9: Audio Production (Per-Scene)** — Per-scene TTS → per-scene force alignment (Groq API / faster-whisper) → per-scene subtitle generation → script files rewritten inline with timestamps ✓
 - [x] **Phase 10: Visual Asset Pipeline** — Stock API sourcing (Pexels/Pixabay/Freesound), character SVGs, global + per-channel consistent asset library, SQLite-backed asset cache with TTL eviction ✓
 - [x] **Phase 11: Scene Assembly & Final Render** — Per-scene two-pass render (HyperFrames GSAP compositions → Playwright → FFmpeg) → assembly with subtitles + crossfade transitions → multi-format output (16:9 / 9:16 / 1:1) → temp cleanup ✓
-- [ ] **Phase 12: Recon Efficiency Rework** — Caption-first YouTube pipeline (no download for captioned videos), Instagram caption-as-transcript, Groq transcription provider, SQLite-backed transcript cache, transcript cleaning
-- [ ] **Phase 13: Agent Documentation** — Write AGENTS.md workflow directives and process-specific markdown files for agentic automation
+- [x] **Phase 12: Recon Efficiency Rework** — Caption-first YouTube pipeline (no download for captioned videos), Instagram caption-as-transcript, Groq transcription provider, SQLite-backed transcript cache, transcript cleaning ✓
+- [x] **Phase 13: Onboarding Infrastructure** — One-line installer fix, `creatorforge doctor` health check CLI, interactive .env setup, IG OAuth local server, Fernet key backup, cron installer scripts, CRON-SETUP.md modernized ✓
+- [x] **Phase 14: Agent Documentation** — Write AGENTS.md workflow directives and process-specific markdown files for agentic automation ✓
 
 ---
 
@@ -255,25 +256,44 @@ Plans:
     3. Instagram post captions ≥ 10 words are used directly as transcripts (skip download+transcribe for those)
     4. Groq Whisper API is the default transcription provider (free tier), with local faster-whisper fallback
     5. Transcript cache upgraded from flat `.txt` files to SQLite-backed with TTL eviction and queryable metadata
-    6. Multi-language YouTube caption support respects target language config
+     6. Multi-language YouTube caption support respects target language config
      7. All existing recon tests pass with updated mocks; new tests cover caption extraction, cleaning, and cache
 **Plans**: 3 plans
 
 Plans:
-- [ ] 12-01-PLAN.md — Foundation: transcript cleaning, Groq config defaults, SQLite-backed cache
-- [ ] 12-02-PLAN.md — Caption-first extraction: YouTube captions + Instagram caption-as-transcript in pipeline
-- [ ] 12-03-PLAN.md — Test suite: cleaning, cache, and config tests
+- [x] 12-01-PLAN.md — Foundation: transcript cleaning, Groq config defaults, SQLite-backed cache
+- [x] 12-02-PLAN.md — Caption-first extraction: YouTube captions + Instagram caption-as-transcript in pipeline
+- [x] 12-03-PLAN.md — Test suite: cleaning, cache, and config tests
 
-### Phase 13: Agent Documentation
+### Phase 13: Onboarding Infrastructure
+**Goal**: New users can install, configure, and health-check CreatorForge in minutes — no manual .env editing, no broken one-liner installers, no missing cron scripts or stale docs.
+**Depends on**: Phase 12 (recon pipeline must be efficient before documenting onboarding)
+**Requirements**: ONBOARD-01, ONBOARD-02, ONBOARD-03, ONBOARD-04, ONBOARD-05, ONBOARD-06
+**Success Criteria** (what must be TRUE):
+    1. `install.sh` clones the correct repo (`goviralbro`) and runs the canonical `init-creatorforge.sh` bootstrap
+    2. `creatorforge doctor` checks project structure, CLI tools, API keys, credential encryption, OAuth tokens, and network connectivity in under 5 seconds
+    3. `scripts/setup-env.py` walks through each API key group interactively, opens signup URLs in browser, and saves to `.env`
+    4. `scripts/setup-ig-token.py` supports automatic local-server OAuth redirect capture (default) plus legacy manual mode
+    5. `scripts/backup-credentials-key.py --to-env` copies the Fernet key into `.env` to prevent credential lockout
+    6. `scripts/install-crons.sh` installs launchd plists (macOS) or prints crontab instructions (Linux); `scripts/daily-discover.sh` and `scripts/weekly-analyze.sh` exist and are executable
+**Plans**: 1 plan (all gaps addressed in a single pass)
+
+### Phase 14: Agent Documentation
 **Goal**: Full pipeline workflow is documented in agent-facing markdown files (AGENTS.md, process-specific guides) so any AI CLI (OpenCode, Claude Code, Codex) can autonomously orchestrate the CreatorForge pipeline from discovery through publishing.
-**Depends on**: Phase 12 (recon pipeline must be efficient before documenting)
+**Depends on**: Phase 13 (onboarding must be clean before documenting)
 **Requirements**: DOC-01, DOC-02
+**Completed**: 2026-07-28 — 3 plans, 2/2 DOC requirements
 **Success Criteria** (what must be TRUE):
     1. `AGENTS.md` (or equivalent for OpenCode) at project root describes the full pipeline workflow: discover → angle → script → produce → publish → analyze → learn
     2. Process-specific markdown files in `.agents/docs/` describe each stage in detail: input contracts, output artifacts, available commands, error recovery procedures
     3. Process-specific docs note YouTube Studio manual-only operations (end screens, cards, thumbnail A/B testing) as human handoff steps
     4. A CLI tool or agent can follow the documentation to autonomously run the full pipeline end-to-end without human intervention
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [x] 14-01-PLAN.md — Create AGENTS.md pipeline playbook ✓
+- [x] 14-02-PLAN.md — Create per-stage docs in .agents/docs/ (7 files) ✓
+- [x] 14-03-PLAN.md — Update viral-pipeline subagent prompt + README tool compatibility ✓
 
 ---
 
@@ -296,7 +316,9 @@ Phase 1 (Foundation & Pipeline)
   │
   ├── Phase 12 (Recon Efficiency Rework) ←─ needs Groq API key
   │
-  └── Phase 13 (Agent Documentation)
+  ├── Phase 13 (Onboarding Infrastructure) ←─ fixes install, health check, .env walkthrough, cron installers
+  │
+  └── Phase 14 (Agent Documentation)
 ```
 
 ---
@@ -316,8 +338,9 @@ Phase 1 (Foundation & Pipeline)
 | 9. Audio Production (Per-Scene) | 3/3 | Complete ✓ | 2026-07-14 |
 | 10. Visual Asset Pipeline | 5/5 | Complete ✓ | 2026-07-17 |
 | 11. Scene Assembly & Final Render | 3/3 | Complete ✓ | 2026-07-17 |
-| 12. Recon Efficiency Rework | 0/3 | Planning | — |
-| 13. Agent Documentation | 0/– | Not started | - |
+| 12. Recon Efficiency Rework | 3/3 | Complete ✓ | 2026-07-18 |
+| 13. Onboarding Infrastructure | 1/1 | Complete ✓ | 2026-07-19 |
+| 14. Agent Documentation | 3/3 | Complete ✓ | 2026-07-28 |
 
 ---
 
@@ -334,12 +357,13 @@ Phase 1 (Foundation & Pipeline)
 | PROD-AUDIO (Audio Production) | 6 | Phase 9 | 6/6 ✓ | Complete |
 | PROD-VISUAL (Visual Assets) | 9 | Phase 10 | 9/9 ✓ | Complete (+ Wikimedia Commons provider) |
 | PROD-RENDER (Scene Assembly & Render) | 7 | Phase 11 | 7/7 ✓ | Complete ✓ |
-| RECON-EFF (Recon Efficiency) | 7 | Phase 12 | 7/7 ✓ | Planning |
-| DOC (Agent Documentation) | 2 | Phase 13 | 2/2 ✓ | Pending |
-| **Total** | **83** | **13 phases** | **83/83 ✓** | **11/13 complete** |
+| RECON-EFF (Recon Efficiency) | 7 | Phase 12 | 7/7 ✓ | Complete ✓ |
+| ONBOARD (Onboarding Infrastructure) | 6 | Phase 13 | 6/6 ✓ | Complete ✓ |
+| DOC (Agent Documentation) | 2 | Phase 14 | 2/2 ✓ | Complete ✓ |
+| **Total** | **89** | **14 phases** | **89/89 ✓** | **14/14 complete** |
 
 ---
 
 *Created: 2026-07-10*
 *Granularity: fine*
-*Revised: 2026-07-18 — Phase 12 redefined as Recon Efficiency Rework; Phase 13 = Agent Documentation; ROADMAP.md updated*
+*Revised: 2026-07-28 — Phase 14 (Agent Documentation) complete: AGENTS.md playbook, 7 per-stage docs, agent prompt update, README tool compat; v1.0 milestone complete*

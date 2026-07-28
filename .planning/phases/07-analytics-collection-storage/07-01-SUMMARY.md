@@ -9,7 +9,7 @@ dependency_graph:
   affects: [Phase 8 (scheduling), insights.py, brain_updater.py]
 tech-stack:
   added: []
-  patterns: [dual-phase polling, JSONL append-only persistence, Analytics API row indexing]
+  patterns: [on-demand dual-phase collection, JSONL append-only persistence, Analytics API row indexing]
 key-files:
   created:
     - agent_core/analytics/collector.py (full rewrite)

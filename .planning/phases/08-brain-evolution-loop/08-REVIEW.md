@@ -32,7 +32,7 @@ Reviewed 4 source files and 1 context document for Phase 8 (Brain Evolution Loop
 1. **Path traversal vulnerability** — `update_brain()` does not validate the `channel` parameter before constructing filesystem paths, unlike `load_brain_context()` which properly validates via `_validate_channel_name`.
 2. **New brain creation always crashes** — `update_brain()` creates an empty `{}` dict when `brain.json` is missing, but immediately crashes on `validate_or_raise()` because the empty dict fails schema validation (missing required fields).
 
-**Additionally:** No test coverage exists for `brain_updater.py` — the primary deliverable of this phase — and the dual-phase polling scheduler has a deduplication gap.
+**Additionally:** No test coverage exists for `brain_updater.py` — the primary deliverable of this phase — and `run_scheduled_collection()` has a deduplication gap.
 
 ---
 
@@ -196,7 +196,7 @@ Key untested functions:
 - `agent_core/analytics/collector.py:418-523` (run_scheduled_collection)
 - `agent_core/analytics/brain_updater.py:96-227` (update_weights)
 
-**Issue:** `run_scheduled_collection()` (analytics-03 scheduler) and `collect_recent()` both collect analytics for videos without checking whether entries already exist. Since `persist_entry()` is append-only, the same video can accumulate multiple entries over time (e.g., collected at day 1, day 3, day 30).
+**Issue:** `run_scheduled_collection()` (batch collection) and `collect_recent()` both collect analytics for videos without checking whether entries already exist. Since `persist_entry()` is append-only, the same video can accumulate multiple entries over time (e.g., collected at day 1, day 3, day 30).
 
 In `update_weights()`, all entries are averaged equally — there's no deduplication by `content_id` and no recency weighting. This means:
 1. A video with 3 collection timestamps gets 3× the weight in pillar averages compared to a video with 1 timestamp

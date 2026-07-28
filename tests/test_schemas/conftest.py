@@ -23,12 +23,12 @@ def schema_dir() -> Path:
 
 @pytest.fixture(scope="session")
 def all_schemas(schema_dir: Path) -> dict[str, dict]:
-    """Load all 15 JSON Schema files into {filename: schema_dict}."""
+    """Load all 17 JSON Schema files into {filename: schema_dict}."""
     schemas = {}
     for fpath in sorted(schema_dir.glob("*.schema.json")):
         with open(fpath) as f:
             schemas[fpath.name] = json.load(f)
-    assert len(schemas) == 15, f"Expected 15 schemas, got {len(schemas)}"
+    assert len(schemas) == 17, f"Expected 17 schemas, got {len(schemas)}"
     return schemas
 
 

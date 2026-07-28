@@ -6,7 +6,7 @@
 <domain>
 ## Phase Boundary
 
-Performance data from published videos is collected in a dual-phase polling loop — basic velocity metrics at 24h, deep behavioral metrics at 72h — validated against schema, and persisted for downstream analysis.
+Performance data from published videos is collected on-demand in a dual-phase workflow — basic velocity metrics at 24h, deep behavioral metrics at 72h — validated against schema, and persisted for downstream analysis. Not a daemon or background service.
 
 **Depends on:** Phase 6 (needs published videos to collect analytics)
 

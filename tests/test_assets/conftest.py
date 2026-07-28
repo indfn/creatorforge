@@ -117,6 +117,54 @@ def mock_freesound_response():
 
 
 # =========================================================================
+# Mock Wikimedia Commons API response
+# =========================================================================
+
+
+@pytest.fixture
+def mock_wikimedia_response():
+    """Return a mock Wikimedia Commons API search response.
+
+    Matches ``GET /w/api.php?action=query&generator=search`` response format
+    with ``imageinfo``, ``extmetadata``, and ``dimensions``.
+    """
+    return {
+        "batchcomplete": "",
+        "query": {
+            "pages": {
+                "12345": {
+                    "pageid": 12345,
+                    "ns": 6,
+                    "title": "File:Vintage_illustration_example.jpg",
+                    "imageinfo": [
+                        {
+                            "url": "https://upload.wikimedia.org/wikipedia/commons/example.jpg",
+                            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Vintage_illustration_example.jpg",
+                            "width": 1800,
+                            "height": 1200,
+                            "extmetadata": {
+                                "Artist": {
+                                    "value": '<a href="https://example.com">Test Artist</a>',
+                                    "source": "commons",
+                                },
+                                "LicenseShortName": {
+                                    "value": "Public domain",
+                                    "source": "commons",
+                                },
+                                "Credit": {
+                                    "value": "Test Credit Line",
+                                    "source": "commons",
+                                },
+                            },
+                        }
+                    ],
+                },
+            }
+        },
+    }
+
+
+# =========================================================================
 # Environment isolation
 # =========================================================================
 
@@ -129,6 +177,7 @@ def disable_stock_api_keys(monkeypatch):
         - ``PexelsProvider`` initialises with ``api_key=""``
         - ``PixabayProvider`` initialises with ``api_key=""``
         - ``FreesoundProvider`` initialises with ``api_key=""``
+        - ``WikimediaCommonsProvider`` does not need an API key
     """
     for key in ("PEXELS_API_KEY", "PIXABAY_API_KEY", "FREESOUND_API_KEY"):
         monkeypatch.delenv(key, raising=False)

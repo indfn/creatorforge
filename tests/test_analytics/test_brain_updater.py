@@ -175,28 +175,29 @@ class TestUpdateWeights:
         """Pillar with above-average views gets icp_relevance > 1.0."""
         entries = (
             [_make_entry(f"v{i}", pillar="AI Automation", views=1000, ctr=5.0, engagement_rate=3.0)
-             for i in range(3)]
+             for i in range(2)]  # < 3 entries → skipped (D-08)
             +
             [_make_entry(f"v{i}", pillar="Growth Hacking", views=2000, ctr=5.0, engagement_rate=3.0)
              for i in range(3)]
         )
         result = update_weights("TestChan", entries)
-        # Growth Hacking has avg views 2000 vs channel avg 1500 → ratio 1.33 → icp_relevance > 1
+        # Only Growth Hacking qualifies (3 entries). Channel avg = (1000*2+2000*3)/5 = 1600
+        # Growth Hacking avg views = 2000, ratio = 2000/1600 = 1.25 → icp_relevance = 1.25 > 1
         assert result["icp_relevance"] > 1.0
 
     def test_pillar_underperforms_channel(self):
         """Pillar with below-average views gets icp_relevance < 1.0 (but >= 0.5)."""
         entries = (
             [_make_entry(f"v{i}", pillar="AI Automation", views=1000, ctr=5.0, engagement_rate=3.0)
-             for i in range(3)]
+             for i in range(2)]  # < 3 entries → skipped (D-08)
             +
             [_make_entry(f"v{i}", pillar="Growth Hacking", views=100, ctr=5.0, engagement_rate=3.0)
              for i in range(3)]
         )
         result = update_weights("TestChan", entries)
-        # Growth Hacking has avg views 100 vs channel avg ~550 → ratio 0.18 → capped at 0.5
-        # But AI Automation has avg 1000, so avg_views_ratio is (1000/550 + 100/550 capped)/2
-        # Actually both pillars are averaged together in the composite
+        # Only Growth Hacking qualifies. Channel avg = (1000*2+100*3)/5 = 460
+        # Growth Hacking avg views = 100, ratio = 100/460 = 0.217 → capped at 0.5
+        # icp_relevance = 1.0 + (0.5 - 1.0) = 0.5
         assert result["icp_relevance"] <= 1.0
 
     def test_pillar_with_less_than_3_entries_skipped(self):

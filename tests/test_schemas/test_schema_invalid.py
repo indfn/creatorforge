@@ -1,4 +1,4 @@
-"""Test that all 15 JSON Schemas properly reject invalid data.
+"""Test that all 17 JSON Schemas properly reject invalid data.
 
 Each test case provides data that MUST raise ValidationError.
 """
@@ -342,6 +342,32 @@ INVALID_CASES = [
             },
         },
         "script: sections has 1 item, minimum is 3",
+    ),
+    # ── Phase 9 schemas ────────────────────────────────────────────────
+    (
+        "tts-config.schema.json",
+        {},
+        "tts-config: missing all required",
+    ),
+    (
+        "tts-config.schema.json",
+        {"provider": "invalid_provider", "characters": {}},
+        "tts-config: provider not in enum",
+    ),
+    (
+        "alignment.schema.json",
+        {},
+        "alignment: not an array",
+    ),
+    (
+        "alignment.schema.json",
+        [{}],
+        "alignment: entry missing word, start, end, probability",
+    ),
+    (
+        "alignment.schema.json",
+        [{"word": "test", "start": 0, "end": 0.5, "probability": 1.5}],
+        "alignment: probability exceeds maximum 1",
     ),
 ]
 

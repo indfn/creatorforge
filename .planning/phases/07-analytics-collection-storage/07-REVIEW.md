@@ -28,7 +28,7 @@ status: issues_found
 Reviewed the analytics collection and storage system across four files: the collector module (415 lines), insights aggregation module (457 lines), CLI wrapper script (202 lines), and the JSON Schema contract (85 lines). The code is generally well-structured with good error handling, clean separation of concerns, and proper schema validation before persistence.
 
 **Key areas addressed per phase requirements:**
-- **ANALYTICS-01** (24h/72h dual-phase polling): Implemented via `days_since_publish` gating — basic metrics at >= 1 day, deep metrics at >= 3 days. Both YouTube Data API v3 and Analytics API v2 integrated.
+- **ANALYTICS-01** (24h/72h dual-phase on-demand collection): Implemented via `days_since_publish` gating — basic metrics at >= 1 day, deep metrics at >= 3 days. Both YouTube Data API v3 and Analytics API v2 integrated.
 - **ANALYTICS-02** (JSONL persistence): Path structure follows `channels/{Name}/data/analytics/{video_id}/{YYYY-MM-DD}.jsonl`, append-only writes, schema validation before each write.
 - **ANALYTICS-06** (Aggregation): `aggregate_channel()` computes per-metric mean/median/min/max/count with deduplication; `aggregate_all()` provides cross-channel leader/runner-up comparison.
 

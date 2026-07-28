@@ -42,7 +42,7 @@ One command from idea to published video: discover competitor patterns → gener
 - Instagram via Instaloader (fragile — ToS-bound)
 - TTS script untouched (custom Gemini endpoint, no changes allowed)
 - `scene` and `context` are dynamic per-scene, not stored in channel config
-- HyperFrames generates HTML/SVG/CSS animations — renders via Puppeteer headless browser to FFmpeg frame pipe, not native FFmpeg filter filters
+- HyperFrames generates per-scene GSAP-powered compositions (`.agents/skills/hyperframes-core/` contract) — renders via Playwright headless browser video capture, not native FFmpeg filter filters
 
 ## Key Decisions
 
@@ -53,15 +53,15 @@ One command from idea to published video: discover competitor patterns → gener
 | JSON Schema contracts | Validate inter-module data shapes | Done |
 | Multi-channel isolation | `channels/{Name}/` per-channel config + brain | Done |
 | OpenAI-compatible LLM pattern | Works with any provider via env vars | Done |
-| Dual-credential YouTube access | Scraping (API key, Project A) isolated from Publishing (OAuth, Project B) | Phase 5 |
-| Two-pass hybrid rendering | Puppeteer rasterizes HyperFrames DOM/CSS → FFmpeg composes with audio | Phase 10 |
-| Dual-phase analytics polling | Basic metrics at 24h, deep behavioral metrics at 72h (YouTube stabilization window) | Phase 6 |
-| HyperFrames as animation backbone | HTML/SVG/CSS keyframe animations rasterized via headless browser, not native FFmpeg filters | Phase 10 |
-| Scene-by-scene production | Full script split into numbered scenes; each scene generates audio, subtitles, and render independently before final assembly | Phases 8-10 |
-| Consistent vs temp asset separation | Reusable assets (images, SFX, character SVGs) in `assets/consistent/`; per-video generated assets in temp, cleaned after publish | Phase 9 |
-| Per-scene subtitle generation | Subtitles generated per-scene during audio production, not during final render — reduces final assembly processing load | Phase 10 |
-| Global + channel asset library | Global consistent assets at `assets/consistent/global/` with per-channel overrides at `channels/{Name}/assets/` | Phase 9 |
-| Agent documentation first-class | AGENTS.md + process-specific docs for any AI CLI to orchestrate the pipeline | Phase 11 |
+| Dual-credential YouTube access | Scraping (API key, Project A) isolated from Publishing (OAuth, Project B) | Phase 6 |
+| Two-pass hybrid rendering | Playwright captures per-scene HyperFrames GSAP compositions → FFmpeg assembles with audio/crossfade | Phase 11 |
+| On-demand dual-phase analytics collection | Basic metrics at 24h, deep behavioral metrics at 72h (YouTube stabilization window) — run manually, no daemon | Phase 7 |
+| HyperFrames as animation backbone | Per-scene GSAP-powered compositions following `.agents/skills/hyperframes-core/` contract — seekable paused timeline, data-* attributes, compatible with `npx hyperframes` tooling | Phase 11 |
+| Scene-by-scene production | Full script split into numbered scenes; each scene generates audio, subtitles, and render independently before final assembly | Phases 8-11 |
+| Consistent vs temp asset separation | Reusable assets (images, SFX, character SVGs) in `assets/consistent/`; per-video generated assets in temp, cleaned after publish | Phase 10 |
+| Per-scene subtitle generation | Subtitles generated per-scene during audio production, not during final render — reduces final assembly processing load | Phase 9 |
+| Global + channel asset library | Global consistent assets at `assets/consistent/global/` with per-channel overrides at `channels/{Name}/assets/` | Phase 10 |
+| Agent documentation first-class | AGENTS.md + process-specific docs for any AI CLI to orchestrate the pipeline | Phase 12 |
 
 ---
 
@@ -76,7 +76,7 @@ One command from idea to published video: discover competitor patterns → gener
 - ✓ **RECON-05**: Score topics against agent brain ICP — `agent_core/scoring/engine.py`
 - ✓ **RECON-06**: Generate PDF lead magnets from scripts — `scripts/generate-pdf.py`
 - ✓ **RECON-07**: Browse competitor data via web UI — `agent_core/recon/web/app.py`
-- ✓ **PROD-01**: Generate TTS audio from scripts — `production/AudioGeneration/tts_generation.py`
+- ✓ **PROD-01**: Generate TTS audio from scripts — `agent_core/audio/tts/generate.py` (CLI) / `CustomTTSProvider` (fallback chain)
 - ✓ **ANALYTICS-01**: Fetch YouTube video analytics — `scripts/fetch-yt-analytics.py`
 - ✓ **ANALYTICS-02**: Fetch Instagram post insights — `scripts/fetch-ig-insights.py`
 - ✓ **AGENT-01**: Agent commands discoverable at `.agents/commands/viral-*.md`

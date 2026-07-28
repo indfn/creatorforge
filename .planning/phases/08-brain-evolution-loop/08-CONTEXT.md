@@ -34,7 +34,7 @@ The agent brain automatically evolves its learning weights from real performance
 ### Implementation architecture
 - **D-11:** `agent_core/analytics/brain_updater.py` — `update_weights()`, `update_hook_preferences()`, `update_performance_patterns()`, `update_brain()` orchestrator
 - **D-12:** `update_brain()` calls: load analytics → update weights → update hook preferences → update performance patterns → persist brain.json → return change summary
-- **D-13:** Dual-phase polling scheduler (ANALYTICS-03) is a simple CLI/function that checks eligible videos and triggers collection — lives in `collector.py` or a `scheduler.py`
+- **D-13:** `run_scheduled_collection()` (ANALYTICS-03) is a simple CLI-callable function that checks eligible videos and triggers collection — lives in `collector.py`. Not a daemon or background process.
 </decisions>
 
 <canonical_refs>
@@ -46,7 +46,7 @@ The agent brain automatically evolves its learning weights from real performance
 
 ### Existing Implementation
 - `agent_core/analytics/brain_updater.py` — Stubs to implement
-- `agent_core/analytics/collector.py` — Phase 7 collector (used by scheduler)
+- `agent_core/analytics/collector.py` — Phase 7 collector (used by run_scheduled_collection)
 - `agent_core/scoring/engine.py` — `load_brain_context()`, `score_topic()` — to add channel param
 </canonical_refs>
 
