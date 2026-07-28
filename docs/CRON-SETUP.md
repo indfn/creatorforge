@@ -1,20 +1,19 @@
 # Cron Setup — Automated Discovery & Analysis
 
-Viral Command runs two automated jobs to keep your content pipeline fresh:
+CreatorForge runs two automated jobs to keep your content pipeline fresh:
 
 | Job | Script | Frequency | Time (UTC) | What It Does |
 |-----|--------|-----------|------------|--------------|
 | Daily Discovery | `scripts/daily-discover.sh` | Every day | 6:00 AM | Scrapes competitors, scores new topics, saves to topics/ |
-| Weekly Analysis | `scripts/weekly-analyze.sh` | Every Friday | 6:00 AM (1 AM EST) | Collects analytics, extracts winners, updates brain |
+| Weekly Analysis | `scripts/weekly-analyze.sh` | Every Friday | 6:00 AM | Collects analytics, extracts winners, updates brain |
 
 ## Prerequisites
 
 Before installing cron jobs:
 
-1. Run `./scripts/init-viral-command.sh` to bootstrap the repo
-2. Run `/viral:setup` to configure API keys
-3. Run `/viral:onboard` to set up your creator profile
-4. Test each script manually first (see [Testing](#testing) below)
+1. Run `./scripts/init-creatorforge.sh` to bootstrap the repo
+2. Run `creatorforge setup-env` or `creatorforge doctor` to configure API keys
+3. Test each script manually first (see [Testing](#testing) below)
 
 ---
 
@@ -50,18 +49,18 @@ If you prefer to install manually:
 ```bash
 # 1. Copy plists with path substitution
 PIPELINE_DIR="$(pwd)"
-sed "s|__PIPELINE_DIR__|$PIPELINE_DIR|g" cron/com.viralcommand.daily-discover.plist > ~/Library/LaunchAgents/com.viralcommand.daily-discover.plist
-sed "s|__PIPELINE_DIR__|$PIPELINE_DIR|g" cron/com.viralcommand.weekly-analyze.plist > ~/Library/LaunchAgents/com.viralcommand.weekly-analyze.plist
+sed "s|__PIPELINE_DIR__|$PIPELINE_DIR|g" cron/com.creatorforge.daily-discover.plist > ~/Library/LaunchAgents/com.creatorforge.daily-discover.plist
+sed "s|__PIPELINE_DIR__|$PIPELINE_DIR|g" cron/com.creatorforge.weekly-analyze.plist > ~/Library/LaunchAgents/com.creatorforge.weekly-analyze.plist
 
 # 2. Load into launchd
-launchctl load ~/Library/LaunchAgents/com.viralcommand.daily-discover.plist
-launchctl load ~/Library/LaunchAgents/com.viralcommand.weekly-analyze.plist
+launchctl load ~/Library/LaunchAgents/com.creatorforge.daily-discover.plist
+launchctl load ~/Library/LaunchAgents/com.creatorforge.weekly-analyze.plist
 ```
 
 ### Verify Running
 
 ```bash
-launchctl list | grep viralcommand
+launchctl list | grep creatorforge
 ```
 
 You should see both jobs listed with a PID (or `-` if not currently running).
@@ -82,7 +81,7 @@ tail -50 logs/daily-discover.log
 | Issue | Fix |
 |-------|-----|
 | "Operation not permitted" | System Settings → Privacy & Security → Full Disk Access → add Terminal |
-| Scripts not running | Check: `launchctl list \| grep viralcommand` — if missing, re-run install |
+| Scripts not running | Check: `launchctl list \| grep creatorforge` — if missing, re-run install |
 | "No such file" in logs | Verify PIPELINE_DIR path is correct in the installed plist |
 | Jobs not firing on schedule | Mac must be awake at scheduled time (launchd runs missed jobs on wake) |
 
@@ -98,9 +97,9 @@ If you use WSL (Windows Subsystem for Linux), you can use standard crontab:
 # Open crontab editor
 crontab -e
 
-# Add these two lines (replace /path/to/content-pipeline with your actual path):
-0 6 * * * cd /path/to/content-pipeline && ./scripts/daily-discover.sh >> logs/daily-discover.log 2>&1
-0 6 * * 5 cd /path/to/content-pipeline && ./scripts/weekly-analyze.sh >> logs/weekly-analyze.log 2>&1
+# Add these two lines (replace /path/to/creatorforge with your actual path):
+0 6 * * * cd /path/to/creatorforge && ./scripts/daily-discover.sh >> logs/daily-discover.log 2>&1
+0 6 * * 5 cd /path/to/creatorforge && ./scripts/weekly-analyze.sh >> logs/weekly-analyze.log 2>&1
 ```
 
 **Important:** WSL must be running for crontab to fire. To auto-start WSL cron:
@@ -116,17 +115,17 @@ If you prefer native Windows scheduling without WSL running:
 
 ```powershell
 # Daily Discovery (6 AM UTC daily)
-schtasks /create /tn "ViralCommand-DailyDiscover" /tr "wsl -d Ubuntu -e bash -c 'cd /path/to/content-pipeline && ./scripts/daily-discover.sh >> logs/daily-discover.log 2>&1'" /sc daily /st 06:00
+schtasks /create /tn "CreatorForge-DailyDiscover" /tr "wsl -d Ubuntu -e bash -c 'cd /path/to/creatorforge && ./scripts/daily-discover.sh >> logs/daily-discover.log 2>&1'" /sc daily /st 06:00
 
 # Weekly Analysis (Friday 6 AM UTC)
-schtasks /create /tn "ViralCommand-WeeklyAnalyze" /tr "wsl -d Ubuntu -e bash -c 'cd /path/to/content-pipeline && ./scripts/weekly-analyze.sh >> logs/weekly-analyze.log 2>&1'" /sc weekly /d FRI /st 06:00
+schtasks /create /tn "CreatorForge-WeeklyAnalyze" /tr "wsl -d Ubuntu -e bash -c 'cd /path/to/creatorforge && ./scripts/weekly-analyze.sh >> logs/weekly-analyze.log 2>&1'" /sc weekly /d FRI /st 06:00
 ```
 
 **To remove:**
 
 ```powershell
-schtasks /delete /tn "ViralCommand-DailyDiscover" /f
-schtasks /delete /tn "ViralCommand-WeeklyAnalyze" /f
+schtasks /delete /tn "CreatorForge-DailyDiscover" /f
+schtasks /delete /tn "CreatorForge-WeeklyAnalyze" /f
 ```
 
 ### Troubleshooting (Windows)
@@ -148,8 +147,8 @@ schtasks /delete /tn "ViralCommand-WeeklyAnalyze" /f
 crontab -e
 
 # Add:
-0 6 * * * cd /path/to/content-pipeline && ./scripts/daily-discover.sh >> logs/daily-discover.log 2>&1
-0 6 * * 5 cd /path/to/content-pipeline && ./scripts/weekly-analyze.sh >> logs/weekly-analyze.log 2>&1
+0 6 * * * cd /path/to/creatorforge && ./scripts/daily-discover.sh >> logs/daily-discover.log 2>&1
+0 6 * * 5 cd /path/to/creatorforge && ./scripts/weekly-analyze.sh >> logs/weekly-analyze.log 2>&1
 ```
 
 ### systemd timer (alternative)
@@ -157,9 +156,9 @@ crontab -e
 For systemd-based systems, create a timer unit. This is more robust than crontab for servers:
 
 ```bash
-# /etc/systemd/system/viralcommand-daily.timer
+# /etc/systemd/system/creatorforge-daily.timer
 [Unit]
-Description=Viral Command Daily Discovery
+Description=CreatorForge Daily Discovery
 
 [Timer]
 OnCalendar=*-*-* 06:00:00 UTC
@@ -172,7 +171,7 @@ WantedBy=timers.target
 Pair with a matching `.service` file that runs the script. Enable with:
 
 ```bash
-sudo systemctl enable --now viralcommand-daily.timer
+sudo systemctl enable --now creatorforge-daily.timer
 ```
 
 ---

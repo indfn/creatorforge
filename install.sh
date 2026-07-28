@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Go Viral Bitch — One-line installer
-# Usage: bash <(curl -fsSL https://raw.githubusercontent.com/charlesdove977/goviralbitch/main/install.sh)
+# CreatorForge — One-line installer
+# Usage: bash <(curl -fsSL https://raw.githubusercontent.com/charlesdove977/goviralbro/main/install.sh)
 
 set -euo pipefail
 
@@ -13,16 +13,15 @@ RESET='\033[0m'
 
 show_logo() {
     echo ""
-    echo -e "${BLUE}    ██████╗ ██╗   ██╗██████╗ ${RESET}"
-    echo -e "${BLUE}   ██╔════╝ ██║   ██║██╔══██╗${RESET}"
-    echo -e "${BLUE}   ██║  ███╗██║   ██║██████╔╝${RESET}"
-    echo -e "${BLUE}   ██║   ██║╚██╗ ██╔╝██╔══██╗${RESET}"
-    echo -e "${BLUE}   ╚██████╔╝ ╚████╔╝ ██████╔╝${RESET}"
-    echo -e "${BLUE}    ╚═════╝   ╚═══╝  ╚═════╝ ${RESET}"
+    echo -e "${BLUE}    ██████╗██████╗ ███████╗ █████╗ ████████╗ ██████╗ ██████╗ ${RESET}"
+    echo -e "${BLUE}   ██╔════╝██╔══██╗██╔════╝██╔══██╗╚══██╔══╝██╔═══██╗██╔══██╗${RESET}"
+    echo -e "${BLUE}   ██║     ██████╔╝█████╗  ███████║   ██║   ██║   ██║██████╔╝${RESET}"
+    echo -e "${BLUE}   ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██║   ██║██╔══██╗${RESET}"
+    echo -e "${BLUE}   ╚██████╗██║  ██║███████╗██║  ██║   ██║   ╚██████╔╝██║  ██║${RESET}"
+    echo -e "${BLUE}    ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝${RESET}"
     echo ""
-    echo -e "${WHITE}   Go Viral Bitch${RESET} ${DIM}v0.1.0${RESET}"
-    echo -e "${DIM}   Trainable social media coaching system${RESET}"
-    echo -e "${DIM}   for Claude Code.${RESET}"
+    echo -e "   ${WHITE}CreatorForge${RESET} ${DIM}v0.2.0${RESET}"
+    echo -e "   ${DIM}AI-powered content creation suite for OpenCode.${RESET}"
     echo ""
 }
 
@@ -34,31 +33,31 @@ if ! command -v git &> /dev/null; then
     exit 1
 fi
 
-# Check for Claude Code
-if ! command -v claude &> /dev/null; then
-    echo -e "${BLUE}!${RESET} Claude Code CLI not detected. You'll need it to run commands."
-    echo -e "${DIM}  Install: https://docs.anthropic.com/en/docs/claude-code${RESET}"
+# Check for OpenCode
+if ! command -v opencode &> /dev/null; then
+    echo -e "${BLUE}!${RESET} OpenCode CLI not detected. You'll need it to run commands."
+    echo -e "${DIM}  Install: https://opencode.ai${RESET}"
     echo ""
 fi
 
 # Clone
-INSTALL_DIR="goviralbitch"
+INSTALL_DIR="creatorforge"
 if [[ -d "$INSTALL_DIR" ]]; then
     echo -e "${BLUE}!${RESET} Directory '$INSTALL_DIR' already exists."
-    echo -e "${DIM}  cd $INSTALL_DIR && bash scripts/init-viral-command.sh${RESET}"
+    echo -e "${DIM}  cd $INSTALL_DIR && bash scripts/init-creatorforge.sh${RESET}"
     exit 1
 fi
 
 echo -e "${BLUE}↓${RESET} Cloning repository..."
-git clone --depth 1 https://github.com/charlesdove977/goviralbitch.git "$INSTALL_DIR" 2>/dev/null
-echo -e "${GREEN}✓${RESET} Cloned goviralbitch"
+git clone --depth 1 https://github.com/charlesdove977/goviralbro.git "$INSTALL_DIR" 2>/dev/null
+echo -e "${GREEN}✓${RESET} Cloned CreatorForge"
 
 cd "$INSTALL_DIR"
 
 # Run bootstrap
 echo -e "${BLUE}↓${RESET} Running bootstrap..."
-bash scripts/init-viral-command.sh 2>/dev/null || true
-echo -e "${GREEN}✓${RESET} Initialized Viral Command"
+bash scripts/init-creatorforge.sh 2>/dev/null || true
+echo -e "${GREEN}✓${RESET} Initialized CreatorForge"
 
 # Setup env
 if [[ ! -f .env ]] && [[ -f .env.example ]]; then
@@ -67,5 +66,5 @@ if [[ ! -f .env ]] && [[ -f .env.example ]]; then
 fi
 
 echo ""
-echo -e "${GREEN}Done!${RESET} Run ${CYAN}/viral:setup${RESET} to get started."
+echo -e "${GREEN}Done!${RESET} Run ${CYAN}creatorforge doctor${RESET} to verify setup, then ${CYAN}opencode .${RESET} to start."
 echo ""

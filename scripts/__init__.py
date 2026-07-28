@@ -22,8 +22,10 @@ _HYPHEN_MODULES: dict[str, str] = {
     "fetch_yt_analytics": "fetch-yt-analytics.py",
     "generate_pdf": "generate-pdf.py",
     "setup_ig_token": "setup-ig-token.py",
+    "setup_env": "setup-env.py",
     "setup_yt_oauth": "setup-yt-oauth.py",
     "setup_channel_branding": "setup-channel-branding.py",
+    "backup_credentials_key": "backup-credentials-key.py",
 }
 
 _PREFIX = __name__  # "scripts"
@@ -56,7 +58,12 @@ def _ensure_loaded(name: str):
 # ── Pre-register all known hyphen modules into sys.modules ────────────
 # This ensures that ``from scripts.fetch_ig_insights import ...`` works
 # via the standard import machinery (importlib checks sys.modules first).
-for _name in _HYPHEN_MODULES:
+# Only loads known-safe modules — scripts with import-time side effects
+# (print + sys.exit on missing dep) are loaded on demand via __getattr__.
+_SAFE_PRELOAD = {k for k, v in _HYPHEN_MODULES.items()
+                 if v not in ("generate-pdf.py", "setup-yt-oauth.py",
+                              "setup-channel-branding.py")}
+for _name in sorted(_SAFE_PRELOAD):
     _ensure_loaded(_name)
 
 

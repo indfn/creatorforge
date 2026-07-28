@@ -1,5 +1,5 @@
 #!/bin/bash
-# Viral Command — Launch Recon Intelligence UI
+# CreatorForge — Launch Recon Intelligence UI
 # Usage: ./scripts/run-recon-ui.sh
 
 set -e
@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PIPELINE_DIR="$(dirname "$SCRIPT_DIR")"
 
 echo "═══════════════════════════════════════"
-echo "  VIRAL COMMAND — Recon Intelligence"
+echo "  CREATORFORGE — Recon Intelligence"
 echo "═══════════════════════════════════════"
 echo ""
 
@@ -31,9 +31,9 @@ mkdir -p "$PIPELINE_DIR/data/recon/reports"
 mkdir -p "$PIPELINE_DIR/data/recon/cache"
 mkdir -p "$PIPELINE_DIR/data/recon/logs"
 
-# Launch Flask
+# Launch Flask (import from agent_core)
 echo "Starting Recon UI on http://localhost:5001"
 echo ""
 
 cd "$PIPELINE_DIR"
-PYTHONPATH="$PIPELINE_DIR" python3 -m recon.web.app
+PYTHONPATH="$PIPELINE_DIR" python3 -m agent_core.recon.web.app

@@ -47,7 +47,7 @@ def load_env():
                 os.environ.setdefault(key.strip(), value.strip())
 
 
-def get_media_insights(media_id, access_token):
+def get_media_insights(media_id, access_token, media_type="VIDEO"):
     """Fetch insights for a single media item."""
     # Basic fields from media object
     fields_url = f"{BASE_URL}/{media_id}"
@@ -245,7 +245,7 @@ def main():
     elif args.recent:
         media_list = get_recent_media(account_id, access_token, args.recent)
         for media in media_list:
-            result = get_media_insights(media["id"], access_token)
+            result = get_media_insights(media["id"], access_token, media.get("media_type"))
             if result.get("published_at"):
                 delta = get_follower_delta(account_id, access_token, result["published_at"])
                 if delta is not None:
