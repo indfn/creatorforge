@@ -1,6 +1,6 @@
 # Setup Guide
 
-Detailed installation and configuration for Viral Command.
+Detailed installation and configuration for CreatorForge.
 
 ---
 
@@ -8,7 +8,7 @@ Detailed installation and configuration for Viral Command.
 
 | Tool | Required | Install |
 |------|----------|---------|
-| Claude Code | Yes | [claude.ai/code](https://claude.ai/code) |
+| OpenCode or Claude Code | Yes | [opencode.ai](https://opencode.ai) or [claude.ai/code](https://claude.ai/code) |
 | Python 3.10+ | Yes | `brew install python` (macOS) or [python.org](https://python.org) |
 | Node.js 18+ | Yes | `brew install node` (macOS) or [nodejs.org](https://nodejs.org) |
 | pip | Yes | Included with Python |
@@ -21,76 +21,72 @@ Detailed installation and configuration for Viral Command.
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/charlieautomates/viral-command.git
-cd viral-command
+git clone <repo-url> creatorforge
+cd creatorforge
 ```
 
 ### 2. Run the Bootstrap Script
 
 ```bash
-bash scripts/init-viral-command.sh
+bash scripts/init-creatorforge.sh
 ```
 
 This script is idempotent (safe to run multiple times). It will:
 - Create required data directories
-- Initialize empty data files (topics, angles, hooks, scripts, etc.)
+- Initialize a default channel (`channels/Default/`)
 - Install Python dependencies from `requirements.txt`
 - Install CLI tools (`yt-dlp`, `instaloader`) if missing
 - Generate a `.env` template if one doesn't exist
 
-Use `--force` to reset all data files to defaults:
-
-```bash
-bash scripts/init-viral-command.sh --force
-```
-
 ### 3. Configure API Keys
 
+The recommended way: run the interactive setup tool:
+
 ```bash
-cp .env.example .env
+python scripts/setup-env.py
 ```
 
-Edit `.env` and add your API keys:
+This walks through each key group (LLM, Groq, YouTube, Instagram, TTS, Pexels, Pixabay, Freesound), opens signup URLs in browser, and saves to `.env`.
 
-**Required keys:**
+To check which keys are still missing without being prompted:
 
-| Key | Where to Get It | Used By |
-|-----|----------------|---------|
-| `OPENAI_API_KEY` | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | Whisper transcription, LLM scoring in recon |
-| `YOUTUBE_DATA_API_KEY` | [Google Cloud Console](https://console.cloud.google.com/apis/library/youtube.googleapis.com) | /viral:analyze (metrics), /viral:discover (search) |
+```bash
+python scripts/setup-env.py --check
+```
 
-**Optional keys:**
+**Quick reference:**
 
-| Key | Where to Get It | Used By |
-|-----|----------------|---------|
-| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) | Recon skeleton ripper LLM calls |
-| `GOOGLE_API_KEY` | [Google Cloud Console](https://console.cloud.google.com/) | Additional Google service access |
+| Key | Where to Get It | Free/Paid |
+|-----|----------------|-----------|
+| `LLM_API_KEY` | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | 💰 Paid |
+| `GROQ_API_KEY` | [console.groq.com/keys](https://console.groq.com/keys) | 🆓 Free (rate-limited) |
+| `YOUTUBE_DATA_API_KEY` | [Google Cloud Console](https://console.cloud.google.com/apis/credentials) | 🆓 Free tier (10K quota/day) |
+| `GEMINI_API_KEY` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | 🆓 Free tier (60 req/min) |
+| `PEXELS_API_KEY` | [pexels.com/api](https://www.pexels.com/api/) | 🆓 Free (200 req/hr) |
+| `PIXABAY_API_KEY` | [pixabay.com/api/docs](https://pixabay.com/api/docs/) | 🆓 Free (unlimited) |
+| `FREESOUND_API_KEY` | [freesound.org/apiv2/apply](https://freesound.org/apiv2/apply/) | 🆓 Free (60 req/min) |
+
+See `.env.example` for all optional keys (research, web search, custom endpoints).
 
 ### 4. Verify Connections
 
-Run the setup wizard to check everything is working:
-
-```
-/viral:setup --check
+```bash
+python scripts/doctor.py
 ```
 
-This verifies: Python version, Node.js version, pip packages, CLI tools, API key presence, and connectivity.
+This checks: project structure, Python/CLI tools, API key presence, credential encryption, OAuth tokens, and network connectivity.
 
-### 5. Create Your Agent Brain
+### 5. Back Up Your Encryption Key
 
+The Fernet key at `data/recon/credentials.key` encrypts stored credentials. If lost, they become unrecoverable.
+
+```bash
+# Copy key into .env as CREDENTIALS_ENCRYPTION_KEY:
+python scripts/backup-credentials-key.py --to-env
+
+# Or export to a file for password manager:
+python scripts/backup-credentials-key.py --export > ~/creatorforge-key.txt
 ```
-/viral:onboard
-```
-
-The onboarding wizard asks about your:
-- Ideal Customer Profile (ICP)
-- Content pillars and topics
-- Target platforms (research vs posting)
-- Competitors to track
-- Monetization strategy and funnel structure
-- CTA preferences
-
-This creates `data/agent-brain.json` — the persistent memory that all commands read from.
 
 ---
 
@@ -98,38 +94,55 @@ This creates `data/agent-brain.json` — the persistent memory that all commands
 
 ### YouTube
 
+**API key (read-only — search + metadata):**
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a project (or select existing)
-3. Enable **YouTube Data API v3**
-4. Create an API key under Credentials
-5. Add to `.env` as `YOUTUBE_DATA_API_KEY`
+2. Create a project and enable **YouTube Data API v3**
+3. Create an API key under Credentials
+4. Add to `.env` as `YOUTUBE_DATA_API_KEY`
 
-Used by: `/viral:discover` (search), `/viral:analyze` (metrics + thumbnails)
+**OAuth (publishing + analytics):**
+```bash
+# Download client_secret.json from Google Cloud Console first
+# then run:
+python scripts/setup-yt-oauth.py --channel Default
+```
+This opens a browser for Google OAuth and saves the token to `channels/Default/yt-oauth-token.json`.
 
 ### Instagram
 
-No API key needed. Viral Command uses [Instaloader](https://instaloader.github.io/) for public profile scraping.
+**Graph API (analytics):**
+```bash
+python scripts/setup-ig-token.py
+```
+This starts a local server, opens the Facebook OAuth URL, and auto-catches the redirect. Saves `INSTAGRAM_ACCESS_TOKEN` and `INSTAGRAM_BUSINESS_ACCOUNT_ID` to `.env`.
+
+**Public scraping (competitor recon):**
+[Instaloader](https://instaloader.github.io/) is used for public profile scraping. No API key needed.
+
+### TikTok / LinkedIn
+
+Analytics entered manually. No API connection required.
+
+### LLM Provider (Content Analysis)
+
+Supports any OpenAI-compatible endpoint. Default: OpenAI.
+
+1. Get an API key: [platform.openai.com](https://platform.openai.com/api-keys)
+2. Set `LLM_API_KEY` (or `OPENAI_API_KEY` for backward compat)
+3. Optionally set `LLM_BASE_URL` for OpenRouter, Together, Ollama, etc.
+
+### Transcription (Competitor Video Analysis)
+
+Default: **Groq Whisper (free tier)**. Fallback chain: Groq → local faster-whisper.
 
 ```bash
-pip install instaloader
+# Get a free Groq API key:
+# https://console.groq.com/keys
+# Add to .env: GROQ_API_KEY=your_key
 ```
 
-Note: Some engagement metrics may require an Instagram login. Instaloader will prompt if needed.
-
-### TikTok
-
-Analytics entered manually via `/viral:analyze` interactive prompts. No API connection required for v0.1.
-
-### LinkedIn
-
-Analytics entered manually via `/viral:analyze` interactive prompts. No API connection required for v0.1.
-
-### OpenAI (Whisper)
-
-1. Get an API key from [platform.openai.com](https://platform.openai.com/api-keys)
-2. Add to `.env` as `OPENAI_API_KEY`
-
-Used by: Recon module (transcribing competitor video/audio content via Whisper API)
+To use OpenAI Whisper instead: set `TRANSCRIBE_API_KEY` + `TRANSCRIBE_BASE_URL`.
+To use local Whisper (no API key): set `TRANSCRIBE_PROVIDER=local`.
 
 ---
 
@@ -219,10 +232,10 @@ chmod +x scripts/*.sh
 
 After setup, run through the pipeline once to verify everything works:
 
-1. `/viral:onboard` — Create your agent brain
-2. `/viral:discover --quick` — Run a quick discovery scan
-3. `/viral:angle --pick` — Develop an angle from a discovered topic
-4. `/viral:script --pick --shortform` — Generate a shortform script
+1. `python scripts/doctor.py` — Verify all checks pass
+2. `python scripts/setup-ig-token.py` — Connect Instagram (if needed)
+3. `python scripts/setup-yt-oauth.py --channel Default` — Connect YouTube (if needed)
+4. `creatorforge doctor` — Final verification
 
 ---
 

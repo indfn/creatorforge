@@ -23,6 +23,7 @@
     "render_width": 1080,
     "render_height": 1920,
     "fps": 30,
+    "_note": "render_width/render_height are legacy — see 'render' section below for current config",
     "tts": {
       "provider": "gemini",
       "characters": {
@@ -35,6 +36,16 @@
         }
       }
     }
+  },
+  "render": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "transition_duration": 0.5,
+    "output_formats": ["16:9", "9:16", "1:1"],
+    "video_codec": "libx264",
+    "preset": "medium",
+    "crf": 23
   },
   "created_at": "",
   "updated_at": ""

@@ -1,7 +1,23 @@
-# Secrets
-.env
+# ============================================
+# CreatorForge .gitignore
+# ============================================
 
-# User-generated data (personal to each user)
+# === Secrets & Credentials ===
+.env
+.env.*
+!.env.example
+credentials.key
+scripts/client_secret.json
+*.token
+*.pem
+
+# === User Data (per-channel, never commit) ===
+channels/*/brain.json
+channels/*/data/
+channels/*/active_production/
+!channels/*/channel_config.json
+
+# === Legacy data/ directory ===
 data/agent-brain.json
 data/topics/
 data/angles.jsonl
@@ -15,63 +31,71 @@ data/recon/
 data/hooks/
 data/scripts/
 data/angles/
-
-# Keep template files tracked
 !data/cta-templates.json
 
-# Recon runtime data (legacy — moved to agent_core/recon/)
+# === Recon runtime data ===
 agent_core/recon/data/
 agent_core/recon/cache/*.txt
 agent_core/recon/*.db
 
-# Logs
-logs/
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-.venv/
-venv/
-
-# Node
-node_modules/
-
-# macOS
-.DS_Store
-
-# Channel runtime data (per-channel, user-generated)
-channels/*/brain.json
-channels/*/data/
-channels/*/active_production/assets/
-channels/*/active_production/render/
-channels/*/active_production/active_script.json
-channels/*/active_production/aligned_transcript.json
-.channel-active
-
-# Keep channel config tracked
-!channels/*/channel_config.json
-
-# Production output (generated)
+# === Production output ===
 production/RenderEngine/render/
+*/active_production/render/
+*/active_production/assets/
+*/active_production/audio/
 
-# PAUL workflow state (development only)
-.paul/
-
-# Personal reports and scraped video data
-*-report.md
-∕tmp∕*/
-.planning/
-
-# SQLite databases
+# === SQLite databases ===
 *.db
 *.sqlite
 *.sqlite3
 
-# OAuth credentials (never commit)
-scripts/client_secret.json
-~/.creatorforge/
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+*.egg
 
-# IDE
+# === Node ===
+node_modules/
+.opencode/node_modules/
+
+# === Logs ===
+logs/
+*.log
+
+# === IDE & Editor ===
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# === OS ===
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# === Planning (internal GSD workflow) ===
+.planning/
+
+# === PAUL workflow (dev only) ===
+.paul/
+
+# === Reports (generated) ===
+*-report.md
+
+# === Temporary files ===
+/tmp/
+tmp/
+*.tmp
+*.bak

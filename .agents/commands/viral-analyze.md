@@ -1,0 +1,8 @@
+---
+description: Analyze content performance for the active channel
+---
+@.agents/commands.claude/viral-analyze.md
+
+Arguments: $ARGUMENTS
+
+IMPORTANT: Read the active channel from channels/$(cat .channel-active 2>/dev/null || echo "ChannelA")/ and use that channel's brain.json. All data reads/writes go to channels/{name}/data/.

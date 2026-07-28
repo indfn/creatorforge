@@ -22,7 +22,3 @@ python-dotenv>=1.0.0
 # faster-whisper>=1.0.0    # Force alignment — pip3 install faster-whisper
 # Pillow>=10.0.0           # Fallback image generation
 # matplotlib>=3.7.0        # Chart generation
-
-# Pipeline infrastructure
-jsonschema>=4.20.0
-portalocker>=2.8.2

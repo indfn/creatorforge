@@ -1,0 +1,43 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "build": {
+      "mode": "primary",
+      "permission": {
+        "edit": "allow",
+        "bash": "allow",
+        "skill": {
+          "*": "allow",
+          "last30days": "allow"
+        }
+      }
+    },
+    "viral-pipeline": {
+      "description": "Orchestrates the full CreatorForge pipeline: discover → angle → script → produce → publish → analyze → learn",
+      "mode": "subagent",
+      "prompt": "You are a viral content pipeline orchestrator. Read AGENTS.md at the project root for the full 7-stage pipeline playbook (discover → angle → script → produce → publish → analyze → learn). Then coordinate the CreatorForge workflow: run competitor discovery, develop angles, generate scripts, trigger hyperframe rendering, and publish to YouTube. Always check channel state before proceeding to the next step. For per-stage deep-dive references, see the files in .agents/docs/.",
+      "permission": {
+        "edit": "allow",
+        "bash": "allow",
+        "skill": {
+          "last30days": "allow",
+          "hyperframes": "allow"
+        }
+      }
+    },
+    "hyperframe-renderer": {
+      "description": "Specialist agent for assembling hyperframe HTML blueprints and running pre-render linting",
+      "mode": "subagent",
+      "prompt": "You are a hyperframe rendering specialist. Assemble HTML blueprints from script JSON timelines, run the linter to validate audio-visual sync, and trigger final render.",
+      "permission": {
+        "edit": "allow",
+        "bash": "allow"
+      }
+    }
+  },
+  "permission": {
+    "skill": {
+      "last30days": "allow"
+    }
+  }
+}
