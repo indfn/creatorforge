@@ -1,11 +1,16 @@
-<p align="center">
-  <img src="assets/creatorforge-logo.svg" alt="CreatorForge" width="320" />
-</p>
-
 <h1 align="center">CREATORFORGE</h1>
 
+```
+    _________                        __              ___________                         
+    \_   ___ \_______   ____ _____ _/  |_  __________\_   _____/__________  ____   ____  
+    /    \  \/\_  __ \_/ __ \\__  \\   __\/  _ \_  __ \    __)/  _ \_  __ \/ ___\_/ __ \ 
+    \     \____|  | \/\  ___/ / __ \|  | (  <_> )  | \/     \(  <_> )  | \/ /_/  >  ___/ 
+     \______  /|__|    \___  >____  /__|  \____/|__|  \___  / \____/|__|  \___  / \___  >
+            \/             \/     \/                      \/             /_____/      \/ 
+```
+
 <p align="center">
-  A trainable social media coaching system for AI coding assistants.<br/>
+  AI-powered video content creation suite.<br/>
   Finds winning topics, develops angles, generates hooks, learns from performance.
 </p>
 
@@ -29,7 +34,7 @@ bash scripts/init-creatorforge.sh
 <br/>
 
 <p align="center">
-  <img src="assets/install-preview.svg" alt="Terminal" width="600" />
+
 </p>
 
 <br/>
