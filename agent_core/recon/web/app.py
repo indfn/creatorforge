@@ -1,10 +1,9 @@
 """
-Recon UI — Flask-based competitor intelligence dashboard for CreatorForge.
+Recon UI — Flask-based competitor intelligence dashboard for Viral Command.
 Stripped from ReelRecon: removed TikTok, cookies, updater.
 Added: competitor-first workflow, agent-brain integration, bridge to discover.
 """
 
-import argparse
 import os
 import json
 import uuid
@@ -15,6 +14,9 @@ from threading import Thread
 from typing import Optional
 
 from flask import Flask, render_template, request, jsonify
+
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from agent_core.recon.config import load_config, load_competitors, save_credentials, load_credentials
 from agent_core.recon.scraper.instagram import InstaClient
@@ -49,13 +51,6 @@ init_db()
 
 # Active jobs tracking
 active_jobs = {}
-
-# Whitelist of allowed settings keys (SEC-04)
-SETTINGS_WHITELIST = frozenset({
-    "ig_username", "ig_password", "openai_api_key", "llm_api_key",
-    "llm_base_url", "llm_model", "transcribe_base_url", "transcribe_model",
-    "transcribe_provider",
-})
 
 
 # =============================================================================
@@ -131,14 +126,18 @@ def api_list_competitors():
     return jsonify(result)
 
 
-def _scrape_competitor(handle_clean: str, max_reels: int = 50) -> Optional[str]:
-    """Internal: start a scrape job for a competitor. Returns job_id or None if not found."""
+@app.route('/api/competitors/<handle>/scrape', methods=['POST'])
+def api_scrape_competitor(handle):
+    """Scrape a single competitor."""
     config = load_config()
+    handle_clean = handle.lstrip("@")
 
+    # Find competitor config
     competitor = next((c for c in config.competitors if c.handle.lstrip("@") == handle_clean), None)
     if not competitor:
-        return None
+        return jsonify({"error": f"Competitor @{handle_clean} not found in agent brain"}), 404
 
+    max_reels = request.json.get("max_reels", 50) if request.is_json else 50
     job_id = str(uuid.uuid4())[:8]
 
     active_jobs[job_id] = {
@@ -197,17 +196,6 @@ def _scrape_competitor(handle_clean: str, max_reels: int = 50) -> Optional[str]:
             logger.error("UI", f"Scrape error for @{handle_clean}", exception=e)
 
     Thread(target=run_scrape, daemon=True).start()
-    return job_id
-
-
-@app.route('/api/competitors/<handle>/scrape', methods=['POST'])
-def api_scrape_competitor(handle):
-    """Scrape a single competitor."""
-    handle_clean = handle.lstrip("@")
-    max_reels = request.json.get("max_reels", 50) if request.is_json else 50
-    job_id = _scrape_competitor(handle_clean, max_reels)
-    if job_id is None:
-        return jsonify({"error": f"Competitor @{handle_clean} not found in agent brain"}), 404
     return jsonify({"job_id": job_id, "status": "started"})
 
 
@@ -219,9 +207,18 @@ def api_scrape_all():
 
     for c in competitors:
         handle_clean = c.handle.lstrip("@")
-        job_id = _scrape_competitor(handle_clean)
-        if job_id:
-            job_ids.append(job_id)
+        # Trigger individual scrape via internal call
+        with app.test_request_context(
+            f'/api/competitors/{handle_clean}/scrape',
+            method='POST',
+            content_type='application/json',
+            data=json.dumps({"max_reels": 50})
+        ):
+            response = api_scrape_competitor(handle_clean)
+            if hasattr(response, 'json'):
+                data = response.get_json()
+                if data and "job_id" in data:
+                    job_ids.append(data["job_id"])
 
     return jsonify({"job_ids": job_ids, "count": len(job_ids)})
 
@@ -349,50 +346,19 @@ def api_get_settings():
 
 @app.route('/api/settings', methods=['POST'])
 def api_save_settings():
-    """Save credentials and settings. Whitelisted keys only, values validated."""
+    """Save credentials and settings."""
     data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
     creds = load_credentials()
-    rejected = []
-    validated = {}
 
-    for key, value in data.items():
-        # Reject keys not in whitelist
-        if key not in SETTINGS_WHITELIST:
-            rejected.append(key)
-            continue
+    # Update only provided fields
+    for key in ["ig_username", "ig_password", "openai_api_key", "llm_api_key",
+                "llm_base_url", "llm_model", "transcribe_base_url", "transcribe_model",
+                "transcribe_provider"]:
+        if key in data and data[key]:
+            creds[key] = data[key]
 
-        # Validate non-empty for credential-type keys
-        if not isinstance(value, str) or not value.strip():
-            continue
-
-        value = value.strip()
-
-        # URL validation for *_base_url keys
-        if key.endswith("_base_url"):
-            if not (value.startswith("http://") or value.startswith("https://")):
-                rejected.append(f"{key} (invalid URL)")
-                continue
-
-        # Provider validation
-        if key == "transcribe_provider":
-            if value not in ("openai", "local"):
-                rejected.append(f"{key} (must be 'openai' or 'local')")
-                continue
-
-        validated[key] = value
-
-    # Update only the validated subset
-    creds.update(validated)
     save_credentials(creds)
-
-    response = {"success": True, "message": f"Saved {len(validated)} setting(s)"}
-    if rejected:
-        response["warning"] = f"Rejected {len(rejected)} invalid key(s): {', '.join(rejected)}"
-
-    return jsonify(response)
+    return jsonify({"success": True, "message": "Settings saved"})
 
 
 @app.route('/api/providers')
@@ -407,24 +373,12 @@ def api_get_providers():
 
 def main():
     """Launch the Recon UI."""
-    parser = argparse.ArgumentParser(description="CreatorForge Recon Intelligence UI")
-    parser.add_argument("--debug", action="store_true", default=False,
-                        help="Run Flask in debug mode (development only)")
-    parser.add_argument("--host", type=str, default="127.0.0.1",
-                        help="Bind address (default: 127.0.0.1). Use 0.0.0.0 for LAN access.")
-    parser.add_argument("--port", type=int, default=5001,
-                        help="Port number (default: 5001)")
-    args = parser.parse_args()
-
-    host_display = "localhost" if args.host == "127.0.0.1" else args.host
     print("\n" + "=" * 50)
-    print("  CREATORFORGE — Recon Intelligence")
-    print(f"  http://{host_display}:{args.port}")
-    if args.debug:
-        print("  ⚠  DEBUG MODE — do not use in production")
+    print("  VIRAL COMMAND — Recon Intelligence")
+    print("  http://localhost:5001")
     print("=" * 50 + "\n")
 
-    app.run(host=args.host, port=args.port, debug=args.debug)
+    app.run(host='0.0.0.0', port=5001, debug=True)
 
 
 if __name__ == '__main__':

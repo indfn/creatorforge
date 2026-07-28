@@ -17,12 +17,12 @@ from typing import Optional, List, Dict, Callable
 
 import instaloader
 
-from recon.utils.logger import get_logger
+from agent_core.recon.utils.logger import get_logger
 
 logger = get_logger()
 
 # Data directory for session files and competitor data
-DATA_DIR = Path(__file__).parent.parent.parent / "data" / "recon"
+DATA_DIR = Path(__file__).parent.parent.parent.parent / "data" / "recon"
 
 
 class InstaClient:

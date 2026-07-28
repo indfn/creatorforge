@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 from statistics import mean
 
-from recon.utils.logger import get_logger
+from agent_core.recon.utils.logger import get_logger
 
 logger = get_logger()
 

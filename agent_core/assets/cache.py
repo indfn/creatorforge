@@ -18,8 +18,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-import portalocker
-
 logger = logging.getLogger(__name__)
 
 #: Default path for the cache database under the project assets directory.

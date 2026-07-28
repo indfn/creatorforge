@@ -12,7 +12,7 @@ from datetime import datetime
 
 from .llm_client import LLMClient
 from .prompts import get_extraction_prompt, validate_skeleton
-from recon.utils.logger import get_logger
+from agent_core.recon.utils.logger import get_logger
 
 logger = get_logger()
 

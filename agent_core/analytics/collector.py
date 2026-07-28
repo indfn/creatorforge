@@ -3,14 +3,16 @@
 Pulls per-video performance metrics (views, CTR, retention, engagement)
 for the channel's published content. Feeds into brain_updater for evolution.
 
-Dual-phase polling:
-  - Basic metrics (views, likes, comments) available at 24h post-publish
-  - Deep metrics (CTR, AVD, retention, shares, subs) available at 72h post-publish
+Run manually (no daemon — on-demand CLI/function call):
+
+  - Basic metrics (views, likes, comments): collect once 24h+ post-publish
+  - Deep metrics (CTR, AVD, retention, shares, subs): collect once 72h+ post-publish
 
 Public Functions:
     collect_for_video(channel, video_id, days_since_publish=0) -> dict | None
     collect_recent(channel, days=30) -> list[dict]
     persist_entry(channel, entry) -> Path
+    run_scheduled_collection(channel) -> int
 """
 
 import json
@@ -434,19 +436,20 @@ def collect_recent(channel: str, days: int = 30) -> list[dict]:
 
 
 def run_scheduled_collection(channel: str) -> int:
-    """Dual-phase polling scheduler — checks all published videos and collects
+    """One-shot batch collection — scans published videos and collects
     analytics for those meeting the 24h (basic) or 72h+ (deep) thresholds.
 
-    Per D-13 / ANALYTICS-03: the scheduler discovers all published videos via
-    the uploads playlist, calculates days_since_publish, and triggers collection
-    at two phases:
-      - Phase 1 (24h): basic public metrics (views, likes, comments) — pick up
-        videos with days_since_publish >= 1 that haven't been collected yet
-      - Phase 2 (72h): deep metrics (CTR, AVD, retention) — pick up videos with
+    Not a daemon or background service — call this manually (or from a CLI)
+    whenever you want to pull the latest analytics.
+
+    Per D-13 / ANALYTICS-03: discovers published videos via the uploads playlist,
+    calculates days_since_publish, and triggers collection at two tiers:
+      - Tier 1 (24h): basic public metrics (views, likes, comments) — videos
+        with days_since_publish >= 1
+      - Tier 2 (72h): deep metrics (CTR, AVD, retention) — videos with
         days_since_publish >= 3
 
     The actual gating by days_since_publish is handled by collect_for_video().
-    This function provides the scheduling loop.
 
     Args:
         channel: Channel name (e.g. 'ChannelA').

@@ -80,4 +80,4 @@ def generate_sfx_query(
         queries.append(f"{scene_emotion} {' '.join(keywords[:2])}")
     if len(keywords) > 1:
         queries.append(" ".join(keywords[:2]))
-    return queries
+    return list(dict.fromkeys(queries))

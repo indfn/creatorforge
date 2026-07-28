@@ -74,11 +74,12 @@ class PixabayProvider(BaseAssetProvider):
                 params=params,
                 timeout=15,
             )
-            self.quota.consume("pixabay", 1)
 
             if resp.status_code == 429:
                 logger.warning("Pixabay rate limit hit (429)")
                 return []
+
+            self.quota.consume("pixabay", 1)
 
             resp.raise_for_status()
             data = resp.json()

@@ -92,11 +92,12 @@ class FreesoundProvider(BaseAssetProvider):
                 params=params,
                 timeout=15,
             )
-            self.quota.consume("freesound", 1)
 
             if resp.status_code == 429:
                 logger.warning("Freesound rate limit hit (429)")
                 return []
+
+            self.quota.consume("freesound", 1)
 
             resp.raise_for_status()
             data = resp.json()

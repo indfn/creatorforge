@@ -7,6 +7,7 @@ Top-level imports::
         BaseAssetProvider, AssetResult,
         # Providers
         PexelsProvider, PixabayProvider, FreesoundProvider,
+        WikimediaCommonsProvider,
         AssetFallbackChain, PROVIDERS, DEFAULT_FALLBACK_CHAIN,
         # Cache
         AssetCache,
@@ -30,6 +31,7 @@ from agent_core.assets.providers import (
     PexelsProvider,
     PixabayProvider,
     FreesoundProvider,
+    WikimediaCommonsProvider,
     AssetFallbackChain,
     PROVIDERS,
     DEFAULT_FALLBACK_CHAIN,
@@ -64,6 +66,7 @@ __all__ = [
     "PexelsProvider",
     "PixabayProvider",
     "FreesoundProvider",
+    "WikimediaCommonsProvider",
     "AssetFallbackChain",
     "PROVIDERS",
     "DEFAULT_FALLBACK_CHAIN",

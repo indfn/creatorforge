@@ -17,7 +17,6 @@ from datetime import datetime
 from typing import Optional, List, Dict, Callable
 
 from agent_core.recon.utils.logger import get_logger
-from agent_core.recon.skeleton_ripper.cleaning import clean_transcript
 
 logger = get_logger()
 
@@ -223,6 +222,7 @@ def get_video_captions(video_id: str, lang: str = "en") -> Optional[str]:
             return None
 
         raw_vtt = vtt_path.read_text(encoding="utf-8")
+        from agent_core.recon.skeleton_ripper.cleaning import clean_transcript
         transcript = clean_transcript(raw_vtt, source="youtube_caption")
 
         # Clean up temp .vtt file

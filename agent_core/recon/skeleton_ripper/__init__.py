@@ -3,7 +3,7 @@ Content Skeleton Ripper — Multi-creator content pattern analysis.
 Ported from ReelRecon with imports adjusted for content-pipeline.
 
 Usage:
-    from recon.skeleton_ripper import SkeletonRipperPipeline, create_job_config
+    from agent_core.recon.skeleton_ripper import SkeletonRipperPipeline, create_job_config
 
     config = create_job_config(
         usernames=['creator1', 'creator2'],

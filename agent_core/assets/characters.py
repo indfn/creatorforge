@@ -59,6 +59,20 @@ class CharacterResolver:
                 "Only letters, numbers, hyphens, underscores allowed."
             )
 
+    @staticmethod
+    def _validate_name(name: str) -> None:
+        """Validate character name to prevent path traversal.
+
+        Raises:
+            ValueError: If *name* contains characters outside
+                ``[A-Za-z0-9_-]``.
+        """
+        if not re.match(r"^[A-Za-z0-9_-]+$", name):
+            raise ValueError(
+                f"Invalid character name: {name!r}. "
+                "Only letters, numbers, hyphens, underscores allowed."
+            )
+
     # -----------------------------------------------------------------
     # Public API
     # -----------------------------------------------------------------
@@ -84,6 +98,8 @@ class CharacterResolver:
             - Logs the character name and channel, not the full resolved path
               (T-10-07).
         """
+        self._validate_name(name)
+
         # Priority 1: Channel override
         channel_dir = (
             self.project_root

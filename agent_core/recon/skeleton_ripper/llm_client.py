@@ -11,7 +11,7 @@ import traceback
 import requests
 from dataclasses import dataclass
 from typing import Optional
-from recon.utils.logger import get_logger
+from agent_core.recon.utils.logger import get_logger
 
 logger = get_logger()
 

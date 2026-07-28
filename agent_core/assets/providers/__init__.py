@@ -11,6 +11,7 @@ from agent_core.assets.base import BaseAssetProvider, AssetResult
 from agent_core.assets.providers.pexels import PexelsProvider
 from agent_core.assets.providers.pixabay import PixabayProvider
 from agent_core.assets.providers.freesound import FreesoundProvider
+from agent_core.assets.providers.wikimedia import WikimediaCommonsProvider
 
 logger = logging.getLogger(__name__)
 
@@ -19,15 +20,20 @@ PROVIDERS: dict[str, type[BaseAssetProvider]] = {
     "pexels": PexelsProvider,
     "pixabay": PixabayProvider,
     "freesound": FreesoundProvider,
+    "wikimedia_commons": WikimediaCommonsProvider,
 }
 
 # Default fallback order for B-roll/images — Pexels primary, Pixabay fallback.
+# Wikimedia Commons is NOT in the default chain — it is an image-specific
+# provider used when consumers explicitly want still images (especially
+# vintage / public domain), not video B-roll.
 DEFAULT_FALLBACK_CHAIN = ["pexels", "pixabay"]
 
 __all__ = [
     "PexelsProvider",
     "PixabayProvider",
     "FreesoundProvider",
+    "WikimediaCommonsProvider",
     "AssetFallbackChain",
     "PROVIDERS",
     "DEFAULT_FALLBACK_CHAIN",

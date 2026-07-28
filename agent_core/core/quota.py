@@ -31,6 +31,7 @@ DEFAULT_BUDGETS: dict[str, dict] = {
     "pexels": {"daily_limit": 200, "description": "Pexels photo/video API"},
     "pixabay": {"daily_limit": 5000, "description": "Pixabay image API"},
     "freesound": {"daily_limit": 500, "description": "Freesound SFX API"},
+    "wikimedia_commons": {"daily_limit": 5000, "description": "Wikimedia Commons API (free, no key needed)"},
 }
 
 

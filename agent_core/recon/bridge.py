@@ -6,12 +6,16 @@ This is the key integration point: competitor analysis → scored topics.
 """
 
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 
 from agent_core.recon.config import load_competitors, BRAIN_FILE
 from agent_core.recon.utils.logger import get_logger
+
+# Add project root to path for scoring imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from agent_core.scoring.engine import score_topic as engine_score_topic
 
 logger = get_logger()
@@ -48,6 +52,7 @@ def skeleton_to_topic(
     topic_index: int,
     date_str: str,
     pillars: List[str],
+    weights: Optional[Dict[str, float]] = None,
 ) -> Dict:
     """
     Convert a single skeleton into a topic dict matching topic.schema.json.
@@ -176,6 +181,7 @@ def generate_topics_from_skeletons(
             topic_index=start_index + i,
             date_str=date_str,
             pillars=pillars,
+            weights=weights,
         )
         topics.append(topic)
 

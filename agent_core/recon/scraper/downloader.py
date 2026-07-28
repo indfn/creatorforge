@@ -119,6 +119,11 @@ def transcribe_video(
     return None
 
 
+def transcribe_video_openai(video_path: str, api_key: str, output_path: Optional[str] = None) -> Optional[str]:
+    """Legacy wrapper — calls transcribe_video with OpenAI defaults."""
+    return transcribe_video(video_path, api_key=api_key, output_path=output_path)
+
+
 def transcribe_video_local(
     video_path: str,
     model,

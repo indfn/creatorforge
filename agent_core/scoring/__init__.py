@@ -5,7 +5,7 @@ Scores topics against agent brain (ICP keywords, pillar matching,
 learning weights) with competitor validation bonuses.
 """
 
-from scoring.engine import (
+from agent_core.scoring.engine import (
     load_brain_context,
     score_topic,
     score_icp_relevance,

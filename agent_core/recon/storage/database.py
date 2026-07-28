@@ -7,7 +7,7 @@ import sqlite3
 from pathlib import Path
 from contextlib import contextmanager
 
-DATABASE_PATH = Path(__file__).parent.parent.parent / 'data' / 'recon' / 'recon.db'
+DATABASE_PATH = Path(__file__).parent.parent.parent.parent / 'data' / 'recon' / 'recon.db'
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS assets (

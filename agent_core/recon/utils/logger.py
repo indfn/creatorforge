@@ -43,7 +43,7 @@ class ReconLogger:
             return
 
         self._initialized = True
-        self.log_dir = log_dir or Path(__file__).parent.parent.parent / "data" / "recon" / "logs"
+        self.log_dir = log_dir or Path(__file__).parent.parent.parent.parent / "data" / "recon" / "logs"
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
         self.max_file_size = max_file_size_mb * 1024 * 1024

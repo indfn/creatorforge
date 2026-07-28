@@ -11,7 +11,7 @@ from typing import Optional
 from .llm_client import LLMClient
 from .prompts import get_synthesis_prompts
 from .aggregator import AggregatedData
-from recon.utils.logger import get_logger
+from agent_core.recon.utils.logger import get_logger
 
 logger = get_logger()
 
