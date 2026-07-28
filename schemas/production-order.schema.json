@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Production Order",
+  "description": "Master episode JSON timeline blueprint for hyperframe rendering",
+  "type": "object",
+  "required": ["title", "scenes", "audio", "output"],
+  "properties": {
+    "title": { "type": "string" },
+    "scenes": {
+      "type": "array",
+      "items": { "$ref": "hyperframe.schema.json" }
+    },
+    "audio": {
+      "type": "object",
+      "properties": {
+        "tts_file": { "type": "string" },
+        "background_music": { "type": "string" },
+        "total_duration": { "type": "number" }
+      }
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "format": { "type": "string", "enum": ["mp4", "vertical_mp4", "horizontal_mp4"] },
+        "resolution": {
+          "type": "object",
+          "properties": {
+            "width": { "type": "integer" },
+            "height": { "type": "integer" }
+          }
+        },
+        "fps": { "type": "integer" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "channel": { "type": "string" },
+        "created_at": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    }
+  }
+}

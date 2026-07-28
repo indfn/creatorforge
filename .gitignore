@@ -33,6 +33,10 @@ data/scripts/
 data/angles/
 !data/cta-templates.json
 
+# === Runtime data ===
+data/checkpoints/
+data/quota/
+
 # === Recon runtime data ===
 agent_core/recon/data/
 agent_core/recon/cache/*.txt
@@ -60,6 +64,8 @@ venv/
 dist/
 build/
 *.egg
+.coverage
+htmlcov/
 
 # === Node ===
 node_modules/

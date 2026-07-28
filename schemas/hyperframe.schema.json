@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Hyperframe Blueprint",
+  "description": "A single scene blueprint within a hyperframe HTML render timeline",
+  "type": "object",
+  "required": ["scene_id", "start_time", "end_time", "template", "elements"],
+  "properties": {
+    "scene_id": { "type": "string" },
+    "start_time": { "type": "number", "description": "Start time in seconds" },
+    "end_time": { "type": "number", "description": "End time in seconds" },
+    "template": { "type": "string", "enum": ["default", "split-screen", "fullscreen-broll", "chart-overlay"] },
+    "narration": { "type": "string", "description": "TTS text for this scene" },
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "enum": ["text", "image", "video", "svg", "shape", "chart"] },
+          "src": { "type": "string" },
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "width": { "type": "number" },
+          "height": { "type": "number" },
+          "animation": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "start": { "type": "number" },
+              "duration": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "transition_in": { "type": "string" },
+    "transition_out": { "type": "string" }
+  }
+}

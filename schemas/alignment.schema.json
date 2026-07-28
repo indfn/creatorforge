@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Alignment",
+  "description": "Word-level alignment timestamps from force alignment via faster-whisper",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "word": {
+        "type": "string",
+        "description": "The transcribed word text"
+      },
+      "start": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Start time in seconds"
+      },
+      "end": {
+        "type": "number",
+        "minimum": 0,
+        "description": "End time in seconds"
+      },
+      "probability": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1,
+        "description": "Confidence score from faster-whisper"
+      }
+    },
+    "required": ["word", "start", "end", "probability"],
+    "additionalProperties": false
+  }
+}

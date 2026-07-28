@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TTS Config",
+  "description": "TTS provider configuration, read from channel_config.json production.tts section",
+  "type": "object",
+  "required": ["provider", "characters"],
+  "properties": {
+    "provider": {
+      "type": "string",
+      "enum": ["custom", "gemini", "google_cloud", "edge"]
+    },
+    "characters": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z0-9_]+$": {
+          "type": "object",
+          "properties": {
+            "voice": { "type": "string" },
+            "style": { "type": "string" },
+            "pace": { "type": "string" },
+            "accent": { "type": "string" },
+            "profile": { "type": "string" }
+          },
+          "required": ["voice"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "fallback_chain": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Provider names in fallback order — default: ['gemini', 'google_cloud', 'edge']"
+    }
+  },
+  "additionalProperties": false
+}
