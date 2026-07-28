@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/gvb-logo.svg" alt="CreatorForge" width="320" />
+  <img src="assets/creatorforge-logo.svg" alt="CreatorForge" width="320" />
 </p>
 
 <h1 align="center">CREATORFORGE</h1>
