@@ -15,7 +15,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-0.1.0-3b82f6?style=flat-square" alt="Version" />
-  <img src="https://img.shields.io/badge/license-MIT-3b82f6?style=flat-square" alt="License" />
+  <img src="https://img.shields.io/badge/license-CC--BY--4.0-3b82f6?style=flat-square" alt="License" />
   <img src="https://img.shields.io/badge/platform-OpenCode_|_Claude_Code-3b82f6?style=flat-square" alt="Platform" />
   <a href="https://start.ccstrategic.io/skool"><img src="https://img.shields.io/badge/community-Skool-3b82f6?style=flat-square" alt="Skool Community" /></a>
 </p>
