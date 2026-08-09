@@ -126,11 +126,11 @@ fi
 Check if the bundled skill exists:
 
 ```bash
-ls skills/last30days/ 2>/dev/null
+ls .agents/skills/last30days/ 2>/dev/null
 ```
 
 - PASS if directory exists with files
-- FAIL if missing: "Run scripts/init-viral-command.sh first"
+- FAIL if missing: "Run scripts/init-creatorforge.sh first"
 
 ### Step 5: Display Results
 

@@ -721,7 +721,7 @@ Edit, remove, or approve these queries (or type your own):
 For each approved query, execute the last30days research script:
 
 ```bash
-python3 skills/last30days/scripts/last30days.py "{query}" --emit=compact --quick
+python3 .agents/skills/last30days/scripts/last30days.py "{query}" --emit=compact --quick
 ```
 
 **Rules:**
