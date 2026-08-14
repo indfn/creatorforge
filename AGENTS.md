@@ -40,9 +40,10 @@ End-to-end pipeline for AI-powered video content creation — from competitor di
 
 - **Goal:** Generate hook and full video script from the selected angle
 - **Command:** `viral-script --channel {name}`
-- **Input:** Selected angle from Stage 2
+- **Input:** Selected angle from Stage 2; optional voice samples in `channels/{name}/voice/`
 - **Output:** Script files at `channels/{name}/active_production/scene_*_script.txt`
-- **Recovery:** Verify LLM API key is set; check script output directory exists
+- **Humanization Gate (mandatory):** Apply the `humanize` skill during generation, then run `ai-check` exactly once. If the verdict is `Uncertain`/`Likely AI`/`AI`, run `humanize` once more (max 2 passes). Do NOT re-run ai-check. Use `channels/{name}/voice/` samples for writer-profile distillation. No script persists without passing the gate.
+- **Recovery:** Verify LLM API key is set; check script output directory exists; if `humanize`/`ai-check` skills are missing, surface the gap instead of silently skipping the gate
 
 ### 4. Produce
 
@@ -61,6 +62,7 @@ End-to-end pipeline for AI-powered video content creation — from competitor di
 - **Command:** `publish-video --channel {name} [--schedule HH:MM]`
 - **Input:** Rendered video at `channels/{name}/active_production/render/final_video.mp4`; `channel_config.json`
 - **Output:** Published YouTube video; `channels/{name}/brain.json` updated with publish timestamp
+- **Metadata Humanization Gate:** Run `humanize` on the generated title/description/CTA, then `ai-check` once (max 2 humanize passes on fail, no re-check) before upload
 - **Recovery:** Verify render output exists; check OAuth token validity; confirm YouTube quota is available
 
 ### 6. Analyze
