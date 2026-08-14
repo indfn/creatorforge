@@ -486,6 +486,59 @@ Then continue to Phase I with LinkedIn-specific generation (text post format, no
 
 ---
 
+## Phase E.5: Humanization Gate (mandatory — ALL script outputs)
+
+Every generated script must pass the Humanization Gate before it is persisted (Phase H), saved as a .md file, or offered for LinkedIn/PDF generation. This is a hard checkpoint — no script advances without it.
+
+**Skills used:** `humanize` (`.agents/skills/humanize/`) and `ai-check` (`.agents/skills/ai-check/`).
+
+**Policy (fixed — do not deviate):** humanize during generation, then run `ai-check` **exactly once**. If it fails, humanize **once more** (max 2 humanize passes total). Do **NOT** re-run ai-check after the second pass. Persist regardless of the second pass's outcome.
+
+### Step 1: Humanize during generation
+
+While drafting hooks, talking points, section content, shortform beats, and LinkedIn copy, apply the `humanize` skill's nine levers from the first draft — do NOT write AI-flavored text and plan to fix it later:
+
+- **Perplexity injection** — surprising-but-accurate word choices; avoid "delve", "leverage", "robust", "comprehensive", "streamline"
+- **Burstiness enforcement** — sentence length variance; at least one fragment of ≤6 words per 150 words; never 3 consecutive sentences within 5 words of each other
+- **Hedge surgery** — cut "it is important to note", "often", "typically" unless factually required; assert directly
+- **Structural flattening** — prose over bullet lists; no "In conclusion" restatement
+- **Specificity insertion** — every abstract claim grounded with a number, name, or concrete example
+- **Voice and register** — first-person where natural, contractions, occasional direct address
+- **Human transitions** — never "Furthermore", "Moreover", "It is clear that"
+- **Punctuation normalization** — max 1 em dash per 300 words; no semicolons; straight quotes only
+- **Strip RLHF voice** — no "helpful assistant" register, no "I hope this helps", no balanced-tradeoff hedging
+
+### Step 2: Voice matching (if samples exist)
+
+If `channels/{name}/voice/` contains writing samples (any `.txt` or `.md` files), follow the humanize skill's writer-profile distillation (protocol step 0): extract 5-10 style hypotheses (sentence-length pattern, word-choice level, paragraph openers, punctuation habits, recurring phrases, transition style) and rewrite in the creator's voice — not generic human tone. If the directory does not exist or is empty, use generic humanize.
+
+### Step 3: ai-check checkpoint (exactly ONCE)
+
+Run the `ai-check` skill on the final drafted output. Produce the full structured report: verdict, confidence, score /27, AI-edited fraction, signal breakdown (A-I), evidence log, and recommended fixes.
+
+- **Pass:** verdict is `Human` or `Likely Human` (score ≤ 8). Proceed to persistence unchanged.
+- **Fail:** verdict is `Uncertain`, `Likely AI`, or `AI` (score ≥ 9). Continue to Step 4.
+
+### Step 4: Second humanize pass (max ONCE)
+
+Run `humanize` again, targeting the specific signals the ai-check report flagged (use its evidence log + recommended fixes as the revision list). This is the **final** humanization — do NOT re-run ai-check, do NOT loop further. The user's policy is exactly one checkpoint and at most two humanize passes.
+
+### Step 5: Persist
+
+Save the script (Phase H / Phase J / LinkedIn). Append a humanization note to the `notes` field of the persisted JSONL record, e.g.:
+
+```
+"notes": "humanized:2x, ai-check: Likely Human (6/27)"
+```
+
+or for a single pass:
+
+```
+"notes": "humanized:1x, ai-check: Human (4/27)"
+```
+
+---
+
 ## Phase F: Longform Script Generation (--longform only)
 
 **Skip this phase if mode is NOT `longform`.** Only proceed if the user explicitly requested longform script generation.
@@ -686,7 +739,7 @@ Keep this script? [Y/n] or provide feedback to revise
 ═══════════════════════════════════════════════════════════════
 ```
 
-- Default (Enter or "y"): proceed to Phase G (filming cards)
+- Default (Enter or "y"): run the Humanization Gate (Phase E.5) on the script, then proceed to Phase G (filming cards)
 - "n": discard script, return to hooks
 - Feedback text: revise specific sections based on user input, then re-display
 
@@ -774,7 +827,7 @@ Save script + filming cards? [Y/n]
 
 **Skip this phase if Phase F was skipped.**
 
-Save the complete script to `data/scripts.jsonl`:
+Save the complete script to `data/scripts.jsonl`. The script was already humanized and gate-checked in Phase E.5 — persist as-is (carry the humanization note into `notes`).
 
 **ID Generation:**
 1. Read existing `data/scripts.jsonl` (if it exists and has content)
@@ -895,8 +948,9 @@ Want a LinkedIn post for this piece? [y/N]
      - **Closer** (reframe/insight)
      - **CTA** (question for engagement)
   4. Display the LinkedIn post
-  5. Ask to save it: "Save this LinkedIn post? [Y/n]"
-  6. If yes:
+  5. Run the Humanization Gate (Phase E.5) on the LinkedIn post text before offering to save.
+  6. Ask to save it: "Save this LinkedIn post? [Y/n]"
+  7. If yes:
      - Save to `data/scripts.jsonl` with `platform: "linkedin"`, generating a new script ID
      - Save as .md file: `LI - {slug}.md` in `/Users/user/Desktop/Development-Charlie-2/Charlieautomates/content/scripts/not-done/linkedin-post/`
      - Display: `✓ LinkedIn post saved: content/scripts/not-done/linkedin-post/LI - {slug}.md`
@@ -1020,7 +1074,7 @@ Keep this script? [Y/n] or provide feedback to revise
 ═══════════════════════════════════════
 ```
 
-- Default (Enter or "y"): keep, proceed to Phase J
+- Default (Enter or "y"): run the Humanization Gate (Phase E.5) on the script, then proceed to Phase J
 - "n": discard and return to hooks
 - Feedback text: revise and re-display
 
@@ -1030,7 +1084,7 @@ Keep this script? [Y/n] or provide feedback to revise
 
 **Skip this phase if Phase I was skipped.**
 
-Save ONE script entry to `data/scripts.jsonl`:
+Save ONE script entry to `data/scripts.jsonl`. The script was already humanized and gate-checked in Phase E.5 — persist as-is (carry the humanization note into `notes`).
 
 **ID Generation:**
 1. Read existing `data/scripts.jsonl` (if it exists and has content)
@@ -1143,8 +1197,9 @@ Want a LinkedIn post for this piece? [y/N]
      - **Closer** (reframe/insight)
      - **CTA** (question for engagement)
   4. Display the LinkedIn post
-  5. Ask to save it: "Save this LinkedIn post? [Y/n]"
-  6. If yes:
+  5. Run the Humanization Gate (Phase E.5) on the LinkedIn post text before offering to save.
+  6. Ask to save it: "Save this LinkedIn post? [Y/n]"
+  7. If yes:
      - Save to `data/scripts.jsonl` with `platform: "linkedin"`, generating a new script ID
      - Save as .md file: `LI - {slug}.md` in `/Users/user/Desktop/Development-Charlie-2/Charlieautomates/content/scripts/not-done/linkedin-post/`
      - Display: `✓ LinkedIn post saved: content/scripts/not-done/linkedin-post/LI - {slug}.md`
@@ -1236,6 +1291,7 @@ Do NOT fail the entire command if PDF generation fails — scripts are already s
 - **Shortform = ONE cross-platform script** — not separate scripts per platform. Cross-post notes handle platform differences.
 - **LinkedIn is its own format** — not part of shortform. LinkedIn posts are offered after longform or shortform scripts are saved.
 - **Scripts are conversational talking points, NOT verbatim teleprompter text** — keep it natural, the creator riffs on bullet points
+- **Every script output MUST pass the Humanization Gate (Phase E.5)** — humanize during generation, then run ai-check exactly once; if it fails, humanize once more (max 2 passes). Never skip the gate, never run ai-check twice, never persist an un-gated script
 - **Every section must connect back to the angle's core contrast** — the contrast is the thread through the entire video
 - **NEVER use browser automation** — all data comes from local files
 - **Every hook MUST connect to the angle's contrast** — no generic hooks allowed
