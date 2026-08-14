@@ -20,6 +20,16 @@ Optional:
 - `--privacy public|private|unlisted`
 - `--thumbnail path/to/image.png` to override keyframe auto-extraction
 
+## Metadata Humanization Gate
+
+The YouTube title, description, and CTA metadata must pass the same humanization policy as the script before upload:
+
+1. Apply the `humanize` skill to the generated title, description, and CTA text
+2. Run `ai-check` exactly once on the assembled description
+3. On fail (`Uncertain`/`Likely AI`/`AI`), run `humanize` once more (max 2 passes) — do NOT re-run ai-check
+4. Use `channels/{name}/voice/` samples for writer-profile distillation if present
+5. Upload with the finalized humanized metadata
+
 ## Output Artifacts
 
 - Published YouTube video
@@ -43,3 +53,5 @@ Optional:
 
 - [AGENTS.md](../AGENTS.md) — Pipeline overview
 - [.agents/commands/publish-video.md](../commands/publish-video.md) — Command reference
+- [.agents/skills/humanize/SKILL.md](../skills/humanize/SKILL.md) — Humanization skill
+- [.agents/skills/ai-check/SKILL.md](../skills/ai-check/SKILL.md) — AI-detection audit skill
