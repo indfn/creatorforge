@@ -20,6 +20,7 @@
 - [x] **Phase 12: Recon Efficiency Rework** — Caption-first YouTube pipeline (no download for captioned videos), Instagram caption-as-transcript, Groq transcription provider, SQLite-backed transcript cache, transcript cleaning ✓
 - [x] **Phase 13: Onboarding Infrastructure** — One-line installer fix, `creatorforge doctor` health check CLI, interactive .env setup, IG OAuth local server, Fernet key backup, cron installer scripts, CRON-SETUP.md modernized ✓
 - [x] **Phase 14: Agent Documentation** — Write AGENTS.md workflow directives and process-specific markdown files for agentic automation ✓
+- [x] **Phase 15: Humanization Gate** — Integrate `humanize` + `ai-check` skills into the Script and Publish stages with voice matching and doctor/setup enforcement ✓
 
 ---
 
@@ -295,6 +296,22 @@ Plans:
 - [x] 14-02-PLAN.md — Create per-stage docs in .agents/docs/ (7 files) ✓
 - [x] 14-03-PLAN.md — Update viral-pipeline subagent prompt + README tool compatibility ✓
 
+### Phase 15: Humanization Gate
+**Goal**: AI-written scripts and publish metadata read as human-written. The `humanize` skill is applied during generation and the `ai-check` skill is used as a quality checkpoint before anything persists or uploads.
+**Depends on**: Phase 14 (agent docs define the workflow the gate is enforced through)
+**Requirements**: HUMANIZE-01, HUMANIZE-02, HUMANIZE-03, HUMANIZE-04, HUMANIZE-05
+**Completed**: 2026-08-14 — 1 plan, 5/5 HUMANIZE requirements
+**Success Criteria** (what must be TRUE):
+    1. `humanize` and `ai-check` skills exist as canonical dirs in `.agents/skills/` with MIT attribution, symlinked into `.claude/skills/` and `.opencode/skills/`
+    2. Script generation applies `humanize` during generation, then runs `ai-check` exactly once; on fail, `humanize` once more (max 2 passes); no re-run of ai-check; no script persists un-gated
+    3. Publish metadata (title/description/CTA) passes the same humanization policy before upload
+    4. `channels/{name}/voice/` holds writing samples for writer-profile distillation (created for ChannelA, scaffolded by init, checked by doctor)
+    5. The gate is enforced end-to-end: AGENTS.md, per-stage docs, viral-script (Phase E.5), publish-video command, viral-pipeline agent, opencode.json, and doctor/setup checks
+**Plans**: 1 plan
+
+Plans:
+- [x] 15-01-PLAN.md — Install humanize/ai-check skills + wire Humanization Gate through script/publish workflow ✓
+
 ---
 
 ## Dependency Graph
@@ -318,7 +335,9 @@ Phase 1 (Foundation & Pipeline)
   │
   ├── Phase 13 (Onboarding Infrastructure) ←─ fixes install, health check, .env walkthrough, cron installers
   │
-  └── Phase 14 (Agent Documentation)
+  ├── Phase 14 (Agent Documentation)
+  │
+  └── Phase 15 (Humanization Gate) ←─ enforced through Phase 14 docs + commands
 ```
 
 ---
@@ -341,6 +360,7 @@ Phase 1 (Foundation & Pipeline)
 | 12. Recon Efficiency Rework | 3/3 | Complete ✓ | 2026-07-18 |
 | 13. Onboarding Infrastructure | 1/1 | Complete ✓ | 2026-07-19 |
 | 14. Agent Documentation | 3/3 | Complete ✓ | 2026-07-28 |
+| 15. Humanization Gate | 1/1 | Complete ✓ | 2026-08-14 |
 
 ---
 
@@ -360,10 +380,11 @@ Phase 1 (Foundation & Pipeline)
 | RECON-EFF (Recon Efficiency) | 7 | Phase 12 | 7/7 ✓ | Complete ✓ |
 | ONBOARD (Onboarding Infrastructure) | 6 | Phase 13 | 6/6 ✓ | Complete ✓ |
 | DOC (Agent Documentation) | 2 | Phase 14 | 2/2 ✓ | Complete ✓ |
-| **Total** | **89** | **14 phases** | **89/89 ✓** | **14/14 complete** |
+| HUMANIZE (Content Humanization) | 5 | Phase 15 | 5/5 ✓ | Complete ✓ |
+| **Total** | **94** | **15 phases** | **94/94 ✓** | **15/15 complete** |
 
 ---
 
 *Created: 2026-07-10*
 *Granularity: fine*
-*Revised: 2026-07-28 — Phase 14 (Agent Documentation) complete: AGENTS.md playbook, 7 per-stage docs, agent prompt update, README tool compat; v1.0 milestone complete*
+*Revised: 2026-08-14 — Phase 15 (Humanization Gate) complete: humanize + ai-check skills installed, Script/Publish gates wired, voice matching enabled, doctor/setup enforcement added*

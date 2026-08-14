@@ -4,12 +4,12 @@ milestone: v1.0
 milestone_name: milestone
 current_plan: 0
 status: complete
-last_updated: "2026-07-28T00:00:00.000Z"
+last_updated: "2026-08-14T00:00:00.000Z"
 progress:
-  total_phases: 14
-  completed_phases: 14
-  total_plans: 42
-  completed_plans: 42
+  total_phases: 15
+  completed_phases: 15
+  total_plans: 43
+  completed_plans: 43
   percent: 100
 ---
 
@@ -21,7 +21,7 @@ progress:
 
 **Description:** AI-powered content creation suite for OpenCode/Claude Code. Publishes winning content by discovering competitor patterns, generating scripts, producing video, and learning from performance — all through agent commands.
 
-**Current Focus:** All 14 phases complete. v1.0 milestone delivered.
+**Current Focus:** All 15 phases complete. v1.0 milestone delivered.
 
 ---
 
@@ -30,9 +30,9 @@ progress:
 | Field | Value |
 |-------|-------|
 | **Milestone** | v1 |
-| **Current Phase** | 14 — Agent Documentation |
+| **Current Phase** | 15 — Humanization Gate |
 | **Status** | Complete |
-| **Progress** | Phase 14/14 — All phases complete |
+| **Progress** | Phase 15/15 — All phases complete |
 
 ```
 Phase 1:  [##########] 100% ✓
@@ -49,6 +49,7 @@ Phase 11: [##########] 100% ✓
 Phase 12: [##########] 100% ✓
 Phase 13: [##########] 100% ✓
 Phase 14: [##########] 100% ✓
+Phase 15: [##########] 100% ✓
 ```
 
 ---
@@ -57,9 +58,9 @@ Phase 14: [##########] 100% ✓
 
 | Metric | Value | Target |
 |--------|-------|--------|
-| Phases completed | 14/14 | 14/14 |
-| Plans completed | 42/42 | 42/42 |
-| Requirements covered | 89/89 | 89/89 |
+| Phases completed | 15/15 | 15/15 |
+| Plans completed | 43/43 | 43/43 |
+| Requirements covered | 94/94 | 94/94 |
 
 ---
 | Phase 02 P01 | 5m | 3 tasks | 2 files |
@@ -94,6 +95,7 @@ Phase 14: [##########] 100% ✓
 | Phase 14-agent-documentation P01 | 5m | 1 task | 1 file |
 | Phase 14-agent-documentation P02 | 8m | 3 tasks | 7 files |
 | Phase 14-agent-documentation P03 | 3m | 2 tasks | 3 files |
+| Phase 15-humanization-gate P01 | — | 10 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -137,11 +139,15 @@ Phase 14: [##########] 100% ✓
 | 34 | Fernet key backup into .env | `scripts/backup-credentials-key.py --to-env` writes `CREDENTIALS_ENCRYPTION_KEY` into `.env`. `--export` prints to stdout for password manager backup. Without backup, losing `data/recon/credentials.key` makes all encrypted creds unrecoverable. |
 | 35 | Cron scripts and launchd plists created from scratch | `scripts/daily-discover.sh` and `scripts/weekly-analyze.sh` were documented but missing — created with dry-run support and proper logging. `scripts/install-crons.sh` and `scripts/uninstall-crons.sh` manage macOS launchd plists. `cron/` directory holds plist templates with `__PIPELINE_DIR__` placeholder resolved at install time. |
 | 36 | AGENTS.md as universal agent playbook | AGENTS.md at project root is the single entry point for any AI CLI (OpenCode, Claude Code, Codex). Per-stage deep-dive docs in `.agents/docs/` provide executor-level detail. `.agents/` is the canonical source; `.opencode/` and `.claude/` symlink back for compatibility. |
+| 37 | Humanization Gate: exactly one ai-check, max two humanize passes | Script and Publish metadata are humanized during generation, then `ai-check` runs exactly once. On fail (`Uncertain`/`Likely AI`/`AI`) humanize once more; never re-run ai-check. Bounded policy keeps the pipeline deterministic while closing AI tells. Enforced in command docs (Phase E.5) — no pipeline code changes. |
+| 38 | Voice matching via `channels/{name}/voice/` folder convention | `.txt`/`.md` writing samples in the channel's `voice/` dir feed humanize's writer-profile distillation (protocol step 0) so rewrites match the creator's voice. Scaffolded by init-creatorforge.sh, checked by doctor + setup. |
+| 39 | Vendored skills live canonically in `.agents/skills/` with upstream license | humanize + ai-check are real dirs in `.agents/skills/` (source of truth) with MIT LICENSE files; `.claude/skills/` and `.opencode/skills/` symlink back — same pattern as all other skills. Missing skills are surfaced by doctor/setup, never silently skipped. |
 
 ### Active Todos
 
 - ✅ Phase 13 complete: 10 onboarding gaps fixed, 9 new files (doctor.py, setup-env.py, setup-ig-token.py, backup-credentials-key.py, daily-discover.sh, weekly-analyze.sh, install-crons.sh, uninstall-crons.sh, 2 plist templates)
 - ✅ Phase 14 complete: AGENTS.md playbook + 7 per-stage docs + agent prompt update + README tool compat section
+- ✅ Phase 15 complete: humanize + ai-check skills installed in `.agents/skills/` (symlinked into .claude/.opencode), Script Humanization Gate (Phase E.5) + Publish metadata gate wired, voice matching via `channels/{name}/voice/`, doctor + setup enforcement, opencode.json permissions
 
 ### Blockers
 
@@ -164,11 +170,15 @@ Phase 14: [##########] 100% ✓
 │   ├── FEATURES.md     — Feature landscape analysis
 │   ├── ARCHITECTURE.md — Architecture approach from research
 │   └── PITFALLS.md     — Critical pitfalls and mitigations
-└── codebase/
-    ├── ARCHITECTURE.md — Current codebase architecture analysis
-    └── CONCERNS.md     — Tech debt, security, performance concerns
+├── codebase/
+│   ├── ARCHITECTURE.md — Current codebase architecture analysis
+│   └── CONCERNS.md     — Tech debt, security, performance concerns
+└── phases/
+    ├── 01-foundation-pipeline-infrastructure/
+    ├── ...
+    └── 15-humanization-gate/
 ```
 
 ---
 
-*Last updated: 2026-07-28 — Phase 14 (Agent Documentation) complete: AGENTS.md playbook, 7 per-stage docs, agent prompt update, README tool compat; v1.0 milestone complete*
+*Last updated: 2026-08-14 — Phase 15 (Humanization Gate) complete: humanize + ai-check skills installed in .agents/skills/ (symlinked into .claude/.opencode), Script Humanization Gate (Phase E.5) + Publish metadata gate wired, voice matching via channels/{name}/voice/, doctor + setup enforcement*

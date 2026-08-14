@@ -152,8 +152,18 @@
 
 ### Agent Documentation (DOC)
 
-- [ ] **DOC-01**: Create `AGENTS.md` (or OpenCode-equivalent) at project root describing the full pipeline workflow: discover → angle → script → produce → publish → analyze → learn, with stage inputs/outputs, available commands, and error recovery
-- [ ] **DOC-02**: Create process-specific markdown files in `.agents/docs/` for each pipeline stage, documenting input contracts, output artifacts, command references, and recovery procedures
+- [x] **DOC-01**: Create `AGENTS.md` (or OpenCode-equivalent) at project root describing the full pipeline workflow: discover → angle → script → produce → publish → analyze → learn, with stage inputs/outputs, available commands, and error recovery
+- [x] **DOC-02**: Create process-specific markdown files in `.agents/docs/` for each pipeline stage, documenting input contracts, output artifacts, command references, and recovery procedures
+
+---
+
+### Content Humanization (HUMANIZE)
+
+- [x] **HUMANIZE-01**: Install `humanize` and `ai-check` skills as canonical directories in `.agents/skills/` (with upstream MIT license attribution), symlinked into `.claude/skills/` and `.opencode/skills/`
+- [x] **HUMANIZE-02**: Script-stage Humanization Gate — apply `humanize` during script generation, then run `ai-check` exactly once; on fail (`Uncertain`/`Likely AI`/`AI`), run `humanize` once more (max 2 passes); never re-run ai-check; no script persists without passing the gate
+- [x] **HUMANIZE-03**: Publish-stage Metadata Humanization Gate — run `humanize` on generated title/description/CTA, then `ai-check` once before upload (same max-2-pass / no-recheck policy)
+- [x] **HUMANIZE-04**: Voice matching — `channels/{name}/voice/` holds `.txt`/`.md` writing samples for humanize writer-profile distillation; created for ChannelA, scaffolded by `init-creatorforge.sh`, checked by `creatorforge doctor`
+- [x] **HUMANIZE-05**: Workflow enforcement — Humanization Gate documented in `AGENTS.md`, `.agents/docs/script.md`, `.agents/docs/publish.md`, `viral-script.md` command (Phase E.5), `publish-video.md`, viral-pipeline agent prompt, and `opencode.json` skill permissions; `doctor.py` and `viral-setup` check skill presence
 
 ---
 
@@ -184,4 +194,4 @@ _(filled by roadmap)_
 
 ---
 
-*Last updated: 2026-07-19 — added ONBOARD-01 through ONBOARD-06 (Phase 13: Onboarding Infrastructure)*
+*Last updated: 2026-08-14 — added HUMANIZE-01 through HUMANIZE-05 (Phase 15: Humanization Gate); marked DOC-01/DOC-02 complete*
