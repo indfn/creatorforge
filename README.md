@@ -203,7 +203,6 @@ creatorforge doctor          # Verify all dependencies and API keys
 CreatorForge/
 ├── AGENTS.md                 # Pipeline playbook for AI agents
 ├── .agents/                  # Canonical agent configs
-│   ├── agents/               # Subagent prompts (viral-pipeline, hyperframe-renderer)
 │   ├── commands/             # OpenCode command wrappers
 │   ├── commands.claude/      # Claude Code commands (full prompts)
 │   ├── docs/                 # Per-stage deep-dive docs
@@ -260,7 +259,7 @@ The pipeline is fully documented for autonomous AI agent use:
 
 - **`AGENTS.md`** — Root-level playbook: prerequisites, 7-stage workflow, manual operations
 - **`.agents/docs/`** — Per-stage deep-dives with input/output contracts, commands, error recovery
-- **`.agents/agents/viral-pipeline.md`** — Subagent prompt that orchestrates the full pipeline
+- **`.opencode/opencode.json`** — Subagent definitions (viral-pipeline, hyperframe-renderer) with full prompts
 
 Any AI CLI (OpenCode, Claude Code, Codex) can read these files and autonomously run the pipeline.
 
