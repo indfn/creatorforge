@@ -165,6 +165,30 @@ def main():
         f"{len(channels)} channel(s): {', '.join(channels)}" if channels else "no channels found — run creatorforge onboard"
     ))
 
+    # Humanize + ai-check skills (required by the Script-stage Humanization Gate)
+    skills_dir = PROJECT_ROOT / ".agents" / "skills"
+    hz = skills_dir / "humanize"
+    ac = skills_dir / "ai-check"
+    if (hz / "SKILL.md").exists() and (ac / "SKILL.md").exists():
+        results.append(Check("Humanize skills installed", PASS, "humanize + ai-check"))
+    else:
+        results.append(Check(
+            "Humanize skills installed", WARN,
+            "missing .agents/skills/humanize or ai-check — the Script-stage Humanization Gate cannot run"
+        ))
+
+    # Per-channel voice samples (writer-profile distillation for humanize)
+    for channel in channels:
+        voice_dir = channels_dir / channel / "voice"
+        samples = list(voice_dir.glob("*.txt")) + list(voice_dir.glob("*.md")) if voice_dir.exists() else []
+        if samples:
+            results.append(Check(f"Voice samples ({channel})", PASS, f"{len(samples)} file(s) for humanize writer-profile distillation"))
+        else:
+            results.append(Check(
+                f"Voice samples ({channel})", INFO,
+                "none in channels/{channel}/voice/ — humanize will use generic tone; add .txt/.md writing samples to match the creator's voice"
+            ))
+
     # ── 2. Binary tools ──
     if not quiet:
         print()

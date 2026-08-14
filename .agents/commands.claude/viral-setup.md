@@ -132,6 +132,28 @@ ls .agents/skills/last30days/ 2>/dev/null
 - PASS if directory exists with files
 - FAIL if missing: "Run scripts/init-creatorforge.sh first"
 
+### Step 4b: Humanize + ai-check Skills
+
+Check the bundled humanization skills exist (required by the Script-stage Humanization Gate):
+
+```bash
+ls .agents/skills/humanize/SKILL.md .agents/skills/ai-check/SKILL.md 2>/dev/null
+```
+
+- PASS if both SKILL.md files exist
+- FAIL if missing: "humanize and ai-check are required for the Script Humanization Gate — install from github.com/harshaneel/humanize into .agents/skills/"
+
+### Step 4c: Voice Samples (Optional)
+
+Check per-channel voice samples for writer-profile distillation:
+
+```bash
+ls channels/*/voice/ 2>/dev/null
+```
+
+- PASS/WARN if at least one channel has .txt/.md samples
+- INFO if none exist: "humanize will use generic tone — add channels/{name}/voice/*.txt writing samples to match the creator's voice"
+
 ### Step 5: Display Results
 
 ```
@@ -146,6 +168,9 @@ instaloader         [PASS/MISSING/NEEDS FIX]  {for Instagram competitor scraping
 yt-dlp CLI          [PASS/FAIL]  {version}
 instaloader CLI     [PASS/NEEDS FIX]  {version or PATH fix instructions}
 last30days skill    [PASS/FAIL]
+humanize skill      [PASS/FAIL]
+ai-check skill      [PASS/FAIL]
+voice samples       [PASS/WARN/INFO]
 
 ════════════════════════════════════════
 ```

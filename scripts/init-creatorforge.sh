@@ -60,6 +60,7 @@ done
 if [[ ! -f "$PIPELINE_DIR/channels/Default/brain.json" ]]; then
     mkdir -p "$PIPELINE_DIR/channels/Default/data/"{topics,hooks,insights,analytics,recon}
     mkdir -p "$PIPELINE_DIR/channels/Default/active_production/"{assets,render}
+    mkdir -p "$PIPELINE_DIR/channels/Default/voice"
     cp "$PIPELINE_DIR/channels/ChannelA/brain.json" "$PIPELINE_DIR/channels/Default/brain.json" 2>/dev/null || true
     cp "$PIPELINE_DIR/channels/ChannelA/channel_config.json" "$PIPELINE_DIR/channels/Default/channel_config.json" 2>/dev/null || true
     echo "  ✓ Default channel created"
